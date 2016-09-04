@@ -3,6 +3,7 @@ extern crate openssl;
 extern crate time;
 
 mod dialer;
+mod heartbeater;
 mod utils;
 
 #[cfg(test)]
