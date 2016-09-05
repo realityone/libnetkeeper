@@ -100,12 +100,8 @@ impl SingleNetDialer {
             vectors[k + 1] = scheduled_table[j] & 0x3F;
         }
 
-        let mut pin: [u8; 12] = [0; 12];
-
         let key_table_bytes = self.key_table_bytes();
-        for i in 0..12 {
-            pin[i] = key_table_bytes[vectors[i as usize] as usize];
-        }
+        let pin: Vec<u8> = vectors.iter().map(|c| key_table_bytes[*c as usize]).collect();
 
         let pin_str = str::from_utf8(&pin).unwrap();
         format!("~LL_{}_{}", pin_str, username)
