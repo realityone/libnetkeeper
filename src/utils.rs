@@ -4,9 +4,9 @@ use std::mem;
 use time;
 
 #[allow(dead_code)]
-pub fn current_timestamp() -> i32 {
+pub fn current_timestamp() -> u32 {
     let timespec = time::get_time();
-    timespec.sec as i32
+    timespec.sec as u32
 }
 
 pub fn integer_to_bytes<T>(intger: &T) -> &[u8] {

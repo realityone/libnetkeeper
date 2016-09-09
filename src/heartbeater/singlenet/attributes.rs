@@ -1,5 +1,3 @@
-use std::slice;
-use std::mem;
 use std::net::Ipv4Addr;
 
 use rustc_serialize::hex::ToHex;
@@ -20,6 +18,7 @@ pub trait AttributeFactory {
     fn username(username: &str) -> Attribute;
     fn client_ip_address(ipaddress: Ipv4Addr) -> Attribute;
     fn client_type(client_type: &str) -> Attribute;
+    fn client_version(client_version: &str) -> Attribute;
     fn os_version(version: &str) -> Attribute;
     fn os_language(language: &str) -> Attribute;
     fn cpu_info(cpu_info: &str) -> Attribute;
@@ -29,11 +28,11 @@ pub trait AttributeFactory {
     fn keepalive_data(data: &str) -> Attribute;
     fn keepalive_time(timestamp: u32) -> Attribute;
 
-    fn calc_keepalive_data(timestamp: Option<i32>, last_data: Option<&str>) -> String;
+    fn calc_keepalive_data(timestamp: Option<u32>, last_data: Option<&str>) -> String;
 }
 
 pub trait AttributeVec {
-    fn as_bytes(&self) -> &[u8];
+    fn as_bytes(&self) -> Vec<u8>;
 }
 
 impl Attribute {
@@ -94,6 +93,14 @@ impl AttributeFactory for Attribute {
                        client_type.as_bytes().to_vec())
     }
 
+    fn client_version(client_version: &str) -> Attribute {
+        Attribute::new("Client-Version",
+                       0x3,
+                       0x0,
+                       0x2,
+                       client_version.as_bytes().to_vec())
+    }
+
     fn os_version(version: &str) -> Attribute {
         Attribute::new("OS-Version", 0x5, 0x0, 0x2, version.as_bytes().to_vec())
     }
@@ -134,7 +141,7 @@ impl AttributeFactory for Attribute {
         Attribute::new("KeepAlive-Time", 0x12, 0x0, 0x0, timestamp_bytes.to_vec())
     }
 
-    fn calc_keepalive_data(timestamp: Option<i32>, last_data: Option<&str>) -> String {
+    fn calc_keepalive_data(timestamp: Option<u32>, last_data: Option<&str>) -> String {
         let timenow = match timestamp {
             Some(timestamp) => timestamp,
             None => current_timestamp(),
@@ -162,12 +169,12 @@ impl AttributeFactory for Attribute {
 }
 
 impl AttributeVec for Vec<Attribute> {
-    fn as_bytes(&self) -> &[u8] {
-        let attributes_bytes: Vec<u8> = Vec::new();
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut attributes_bytes: Vec<u8> = Vec::new();
         for attr in self {
             attributes_bytes.extend(*attr.as_bytes());
         }
-        &attributes_bytes
+        attributes_bytes
     }
 }
 

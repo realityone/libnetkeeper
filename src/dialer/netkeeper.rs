@@ -1,6 +1,4 @@
 use std::str;
-use std::slice;
-use std::mem;
 
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
@@ -13,7 +11,6 @@ pub struct NetkeeperDialer {
     pub prefix: String,
 }
 
-#[allow(dead_code)]
 impl NetkeeperDialer {
     pub fn new(share_key: &str, prefix: &str) -> Self {
         NetkeeperDialer {
@@ -22,13 +19,13 @@ impl NetkeeperDialer {
         }
     }
 
-    pub fn encrypt_account(&self, username: &str, timestamp: Option<i32>) -> String {
+    pub fn encrypt_account(&self, username: &str, timestamp: Option<u32>) -> String {
         let username = username.to_uppercase();
         let timenow = match timestamp {
             Some(timestamp) => timestamp,
             None => current_timestamp(),
         };
-        let time_div_by_five: i32 = timenow / 5;
+        let time_div_by_five: u32 = timenow / 5;
 
         let mut pin27_byte: [u8; 6] = [0; 6];
         let pin27_str;
@@ -81,7 +78,6 @@ impl NetkeeperDialer {
     }
 }
 
-#[allow(dead_code)]
 pub fn load_default_dialer() -> NetkeeperDialer {
     NetkeeperDialer::new("zjxinlisx01", "\r\n")
 }

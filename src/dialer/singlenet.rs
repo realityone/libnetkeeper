@@ -1,18 +1,15 @@
-use std::slice;
-use std::mem;
 use std::str;
+use std::slice;
 
 use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct SingleNetDialer {
     share_key: String,
     secret_key: String,
     key_table: String,
 }
 
-#[allow(dead_code)]
 impl SingleNetDialer {
     pub fn new(share_key: &str, secret_key: &str, key_table: &str) -> Self {
         SingleNetDialer {
@@ -22,7 +19,7 @@ impl SingleNetDialer {
         }
     }
 
-    pub fn encrypt_account(&self, username: &str, timestamp: Option<i32>) -> String {
+    pub fn encrypt_account(&self, username: &str, timestamp: Option<u32>) -> String {
         let username = username.to_uppercase();
         let timenow = match timestamp {
             Some(timestamp) => timestamp,
@@ -54,11 +51,6 @@ impl SingleNetDialer {
 
         let mut scheduled_table: Vec<u8> = Vec::with_capacity(8);
         {
-            let timenow_high_bytes: &[u8];
-            let timenow_low_bytes: &[u8];
-            let first_hash_bytes: &[u8];
-            let second_hash_bytes: &[u8];
-
             let timenow_high = (timenow >> 16) as u16;
             let timenow_low = (timenow & 0xFFFF) as u16;
             let timenow_high_be = timenow_high.to_be();
@@ -121,7 +113,6 @@ impl SingleNetDialer {
     }
 }
 
-#[allow(dead_code)]
 pub fn load_default_dialer() -> SingleNetDialer {
     SingleNetDialer::new("hngx01",
                          "000c29270712",

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 extern crate rustc_serialize;
 extern crate openssl;
 extern crate time;
