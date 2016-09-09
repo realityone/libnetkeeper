@@ -5,7 +5,7 @@ use std::mem;
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
 
-use utils::current_timestamp;
+use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
 pub struct NetkeeperDialer {
@@ -65,12 +65,9 @@ impl NetkeeperDialer {
         let pin89_str;
         {
             let mut md5 = Hasher::new(Type::MD5).unwrap();
-            let tdbf_bytes: &[u8];
-            unsafe {
-                tdbf_bytes =
-                slice::from_raw_parts::<u8>((&time_div_by_five.to_be() as *const i32) as *const u8,
-                                            mem::size_of::<i32>());
-            }
+
+            let time_div_by_five_be = time_div_by_five.to_be();
+            let tdbf_bytes = integer_to_bytes(&time_div_by_five_be);
 
             md5.update(tdbf_bytes).unwrap();
             md5.update(username.split("@").nth(0).unwrap().as_bytes()).unwrap();

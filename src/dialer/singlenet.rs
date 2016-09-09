@@ -2,7 +2,7 @@ use std::slice;
 use std::mem;
 use std::str;
 
-use utils::current_timestamp;
+use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -31,12 +31,8 @@ impl SingleNetDialer {
 
         let first_hash: u16;
         {
-            let timenow_bytes: &[u8];
-            unsafe {
-                timenow_bytes =
-                    slice::from_raw_parts::<u8>((&timenow.to_be() as *const i32) as *const u8,
-                                                mem::size_of::<i32>());
-            }
+            let timenow_be = timenow.to_be();
+            let timenow_bytes = integer_to_bytes(&timenow_be);
 
             let mut hash_data: Vec<u8> = Vec::new();
             hash_data.extend(timenow_bytes);
@@ -47,12 +43,8 @@ impl SingleNetDialer {
 
         let second_hash: u16;
         {
-            let first_hash_bytes: &[u8];
-            unsafe {
-                first_hash_bytes =
-                    slice::from_raw_parts::<u8>((&first_hash.to_be() as *const u16) as *const u8,
-                                                mem::size_of::<u16>());
-            }
+            let first_hash_be = first_hash.to_be();
+            let first_hash_bytes = integer_to_bytes(&first_hash_be);
 
             let mut hash_data: Vec<u8> = Vec::new();
             hash_data.extend(first_hash_bytes);
@@ -66,23 +58,16 @@ impl SingleNetDialer {
             let timenow_low_bytes: &[u8];
             let first_hash_bytes: &[u8];
             let second_hash_bytes: &[u8];
+
             let timenow_high = (timenow >> 16) as u16;
             let timenow_low = (timenow & 0xFFFF) as u16;
-            unsafe {
-                timenow_high_bytes =
-                    slice::from_raw_parts::<u8>((&timenow_high.to_be() as *const u16) as *const u8,
-                                                mem::size_of::<u16>());
-                timenow_low_bytes =
-                    slice::from_raw_parts::<u8>((&timenow_low.to_be() as *const u16) as *const u8,
-                                                mem::size_of::<u16>());
+            let timenow_high_be = timenow_high.to_be();
+            let timenow_low_be = timenow_low.to_be();
 
-                first_hash_bytes =
-                    slice::from_raw_parts::<u8>((&first_hash.to_le() as *const u16) as *const u8,
-                                                mem::size_of::<u16>());
-                second_hash_bytes =
-                    slice::from_raw_parts::<u8>((&second_hash.to_le() as *const u16) as *const u8,
-                                                mem::size_of::<u16>());
-            }
+            let timenow_high_bytes = integer_to_bytes(&timenow_high_be);
+            let timenow_low_bytes = integer_to_bytes(&timenow_low_be);
+            let first_hash_bytes = integer_to_bytes(&first_hash);
+            let second_hash_bytes = integer_to_bytes(&second_hash);
 
             scheduled_table.extend(timenow_high_bytes);
             scheduled_table.extend(first_hash_bytes);
