@@ -1,9 +1,10 @@
 [package]
+authors = ["realityone <realityone@me.com>"]
 name = "libnetkeeper"
 version = "0.1.0"
-authors = ["realityone <realityone@me.com>"]
 
 [dependencies]
+num = "0.1.35"
 openssl = "0.8.2"
 rustc-serialize = "0.3.19"
 time = "0.1.35"

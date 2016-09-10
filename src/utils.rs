@@ -2,6 +2,7 @@ use std::slice;
 use std::mem;
 
 use time;
+use num;
 
 #[allow(dead_code)]
 pub fn current_timestamp() -> u32 {
@@ -9,7 +10,9 @@ pub fn current_timestamp() -> u32 {
     timespec.sec as u32
 }
 
-pub fn integer_to_bytes<T>(intger: &T) -> &[u8] {
+pub fn integer_to_bytes<T>(intger: &T) -> &[u8]
+    where T: num::Integer
+{
     let integer_bytes: &[u8];
     unsafe {
         integer_bytes = slice::from_raw_parts::<u8>((intger as *const T) as *const u8,

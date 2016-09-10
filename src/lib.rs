@@ -1,6 +1,7 @@
 extern crate rustc_serialize;
 extern crate openssl;
 extern crate time;
+extern crate num;
 
 mod dialer;
 mod heartbeater;
