@@ -28,17 +28,20 @@ const HEADER_LENGTH: u16 = 22;
 
 impl Packet {
     pub fn new(code: u8, timeflag: u8, attributes: Vec<Attribute>) -> Self {
-        let mut length = HEADER_LENGTH;
-        length = attributes.iter().fold(length, |sum, attr| sum + attr.length());
-
-        Packet {
+        let mut packet = Packet {
             magic_number: Self::magic_number(),
-            length: length,
+            length: 0,
             code: code,
             timeflag: timeflag,
             signature: [0; 16],
             attributes: attributes,
-        }
+        };
+        packet.length = Self::calc_length(&packet);
+        packet
+    }
+
+    pub fn calc_length(packet: &Self) -> u16 {
+        HEADER_LENGTH + packet.attributes.length()
     }
 
     pub fn as_bytes(&mut self, with_signature: bool) -> Box<Vec<u8>> {

@@ -33,6 +33,7 @@ pub trait AttributeFactory {
 
 pub trait AttributeVec {
     fn as_bytes(&self) -> Vec<u8>;
+    fn length(&self) -> u16;
 }
 
 impl Attribute {
@@ -175,6 +176,10 @@ impl AttributeVec for Vec<Attribute> {
             attributes_bytes.extend(*attr.as_bytes());
         }
         attributes_bytes
+    }
+
+    fn length(&self) -> u16 {
+        self.iter().fold(0, |sum, attr| sum + attr.length()) as u16
     }
 }
 
