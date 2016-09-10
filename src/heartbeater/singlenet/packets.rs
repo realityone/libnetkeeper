@@ -15,6 +15,15 @@ pub struct Packet {
     attributes: Vec<Attribute>,
 }
 
+pub trait PacketFactory {
+    fn thunder_protocol(username: &str,
+                        ipaddress: Ipv4Addr,
+                        timestamp: Option<u32>,
+                        last_keepalive_data: Option<&str>,
+                        version: Option<&str>)
+                        -> Packet;
+}
+
 const HEADER_LENGTH: u16 = 22;
 
 impl Packet {
@@ -72,33 +81,6 @@ impl Packet {
         hashed_bytes
     }
 
-    pub fn thunder_protocol(username: &str,
-                            ipaddress: Ipv4Addr,
-                            timestamp: Option<u32>,
-                            last_keepalive_data: Option<&str>,
-                            version: Option<&str>)
-                            -> Self {
-        let version = match version {
-            Some(version) => version,
-            None => "1.2.22.36",
-        };
-        let timestamp = match timestamp {
-            Some(timestamp) => Some(timestamp),
-            None => Some(current_timestamp()),
-        };
-        println!("{:?}", timestamp);
-        let keepalive_data = Attribute::calc_keepalive_data(timestamp, last_keepalive_data);
-        let attributes = vec![
-            Attribute::client_ip_address(ipaddress),
-            Attribute::client_version(version),
-            Attribute::keepalive_data(&keepalive_data),
-            Attribute::keepalive_time(timestamp.unwrap()),
-            Attribute::username(username),
-            ];
-
-        Packet::new(0x3, Self::calc_timeflag(timestamp), attributes)
-    }
-
     fn calc_timeflag(timestamp: Option<u32>) -> u8 {
         let timestamp = match timestamp {
             Some(timestamp) => timestamp,
@@ -112,6 +94,35 @@ impl Packet {
 
     fn magic_number() -> u16 {
         0x534e as u16
+    }
+}
+
+impl PacketFactory for Packet {
+    fn thunder_protocol(username: &str,
+                        ipaddress: Ipv4Addr,
+                        timestamp: Option<u32>,
+                        last_keepalive_data: Option<&str>,
+                        version: Option<&str>)
+                        -> Self {
+        let version = match version {
+            Some(version) => version,
+            None => "1.2.22.36",
+        };
+        let timestamp = match timestamp {
+            Some(timestamp) => Some(timestamp),
+            None => Some(current_timestamp()),
+        };
+        let keepalive_data = Attribute::calc_keepalive_data(timestamp, last_keepalive_data);
+
+        let attributes = vec![
+            Attribute::client_ip_address(ipaddress),
+            Attribute::client_version(version),
+            Attribute::keepalive_data(&keepalive_data),
+            Attribute::keepalive_time(timestamp.unwrap()),
+            Attribute::username(username),
+            ];
+
+        Packet::new(0x3, Self::calc_timeflag(timestamp), attributes)
     }
 }
 
