@@ -35,9 +35,21 @@ pub struct Packet {
 // len(authenticator)
 // 2 + 2 + 1 + 1 + 16
 const HEADER_LENGTH: u16 = 22;
+const MAGIC_NUMBE: u16 = 0x534e;
 
 pub trait PacketFactoryWin {
-    // FIXME: this protocol needs update
+    fn calc_seq(timestamp: Option<u32>) -> u8 {
+        // only be used in windows version,
+        let timestamp = match timestamp {
+            Some(timestamp) => timestamp,
+            None => current_timestamp(),
+        };
+
+        let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
+        let seq = ((tmp_num >> 0x10) & 0xff) as u8;
+        seq
+    }
+
     fn thunder_protocol(username: &str,
                         ipaddress: Ipv4Addr,
                         timestamp: Option<u32>,
@@ -46,26 +58,16 @@ pub trait PacketFactoryWin {
                         -> Packet;
 }
 
-pub trait PacketFactoryMac {}
-
-
-fn calc_seq(timestamp: Option<u32>) -> u8 {
-    // maybe will used in windows version,
-    // but now we don't need this
-    let timestamp = match timestamp {
-        Some(timestamp) => timestamp,
-        None => current_timestamp(),
-    };
-
-    let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
-    let seq = ((tmp_num >> 0x10) & 0xff) as u8;
-    seq
+pub trait PacketFactoryMac {
+    fn calc_seq() -> u8 {
+        0x1 as u8
+    }
 }
 
 impl Packet {
     pub fn new(code: PacketCode, seq: u8, attributes: Vec<Attribute>) -> Self {
         let mut packet = Packet {
-            magic_number: Self::magic_number(),
+            magic_number: MAGIC_NUMBE,
             length: 0,
             code: code,
             seq: seq,
@@ -120,13 +122,10 @@ impl Packet {
         hashed_bytes.clone_from_slice(&md5.finish().unwrap());
         hashed_bytes
     }
-
-    fn magic_number() -> u16 {
-        0x534e as u16
-    }
 }
 
 impl PacketFactoryWin for Packet {
+    // FIXME: this protocol needs update
     fn thunder_protocol(username: &str,
                         ipaddress: Ipv4Addr,
                         timestamp: Option<u32>,
@@ -152,14 +151,14 @@ impl PacketFactoryWin for Packet {
             ];
 
         Packet::new(PacketCode::CKeepAliveRequest,
-                    calc_seq(timestamp),
+                    Packet::calc_seq(timestamp),
                     attributes)
     }
 }
 
 #[test]
 fn test_calc_seq() {
-    let seq = calc_seq(Some(1472483020));
+    let seq = Packet::calc_seq(Some(1472483020));
     assert_eq!(seq, 43 as u8);
 }
 
