@@ -27,8 +27,11 @@ pub struct Packet {
     length: u16,
     code: PacketCode,
     seq: u8,
-    authenticator: [u8; 16],
     attributes: Vec<Attribute>,
+}
+
+pub struct PacketAuthenticator {
+    salt: String,
 }
 
 // len(magic_number) + len(length) + len(code) + len(seq) + \
@@ -36,6 +39,23 @@ pub struct Packet {
 // 2 + 2 + 1 + 1 + 16
 const HEADER_LENGTH: u16 = 22;
 const MAGIC_NUMBE: u16 = 0x534e;
+
+impl PacketAuthenticator {
+    pub fn new(salt: &str) -> Self {
+        PacketAuthenticator { salt: salt.to_string() }
+    }
+
+    pub fn authenticate(&self, bytes: &[u8]) -> [u8; 16] {
+        let mut md5 = Hasher::new(Type::MD5).unwrap();
+
+        md5.update(bytes).unwrap();
+        md5.update(self.salt.as_bytes()).unwrap();
+
+        let mut authorization = [0; 16];
+        authorization.clone_from_slice(&md5.finish().unwrap());
+        authorization
+    }
+}
 
 pub trait PacketFactoryWin {
     fn calc_seq(timestamp: Option<u32>) -> u8 {
@@ -71,7 +91,6 @@ impl Packet {
             length: 0,
             code: code,
             seq: seq,
-            authenticator: [0; 16],
             attributes: attributes,
         };
         packet.length = Self::calc_length(&packet);
@@ -82,11 +101,12 @@ impl Packet {
         HEADER_LENGTH + packet.attributes.length()
     }
 
-    pub fn as_bytes(&mut self, with_authenticator: bool) -> Box<Vec<u8>> {
+    pub fn as_bytes(&mut self, authenticator: Option<&PacketAuthenticator>) -> Box<Vec<u8>> {
         let mut bytes: Box<Vec<u8>> = Box::new(Vec::new());
-        if with_authenticator {
-            self.authenticator = Self::calc_authenticator(&self.as_bytes(false), None);
-        }
+        let authorization = match authenticator {
+            Some(authenticator) => authenticator.authenticate(&self.as_bytes(None)),
+            None => [0; 16],
+        };
 
         {
             let magic_number_be = self.magic_number.to_be();
@@ -101,26 +121,10 @@ impl Packet {
             bytes.extend(length_bytes);
             bytes.push(raw_packet_code);
             bytes.push(self.seq);
-            bytes.extend(self.authenticator.iter());
+            bytes.extend(authorization.iter());
             bytes.extend(attributes_bytes);
         }
         bytes
-    }
-
-    pub fn calc_authenticator(bytes: &[u8], salt: Option<&str>) -> [u8; 16] {
-        let salt = match salt {
-            Some(salt) => salt,
-            None => "LLWLXA_TPSHARESECRET",
-        };
-
-        let mut md5 = Hasher::new(Type::MD5).unwrap();
-
-        md5.update(bytes).unwrap();
-        md5.update(salt.as_bytes()).unwrap();
-
-        let mut hashed_bytes = [0; 16];
-        hashed_bytes.clone_from_slice(&md5.finish().unwrap());
-        hashed_bytes
     }
 }
 
@@ -163,15 +167,16 @@ fn test_calc_seq() {
 }
 
 #[test]
-fn test_calc_authenticator() {
+fn test_authenticator() {
     let data: &[u8] = &[83, 78, 0, 105, 3, 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
                         0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54, 20, 0,
                         35, 100, 48, 100, 99, 101, 50, 98, 48, 49, 51, 99, 56, 97, 100, 102, 97,
                         99, 54, 52, 54, 97, 50, 57, 49, 55, 102, 100, 97, 98, 56, 48, 50, 18, 0,
                         7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57,
                         64, 72, 89, 88, 89, 46, 88, 89];
-    let authenticator = Packet::calc_authenticator(data, None);
-    let real_authenticator: [u8; 16] = [240, 67, 87, 201, 164, 134, 179, 142, 110, 163, 208, 119,
+    let authenticator = PacketAuthenticator::new("LLWLXA_TPSHARESECRET");
+    let authorization = authenticator.authenticate(data);
+    let real_authorization: [u8; 16] = [240, 67, 87, 201, 164, 134, 179, 142, 110, 163, 208, 119,
                                         121, 90, 173, 75];
-    assert_eq!(authenticator, real_authenticator);
+    assert_eq!(authorization, real_authorization);
 }

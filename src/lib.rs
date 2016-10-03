@@ -32,7 +32,7 @@ mod tests {
     fn test_thunder_protocol() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{Packet, PacketFactoryWin};
+        use heartbeater::singlenet::packets::{Packet, PacketFactoryWin, PacketAuthenticator};
 
         let mut tp1 = Packet::thunder_protocol("05802278989@HYXY.XY",
                                                Ipv4Addr::from_str("10.0.0.1").unwrap(),
@@ -44,8 +44,10 @@ mod tests {
                                                Some(1472483020),
                                                Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"),
                                                None);
-        let tp1_bytes = tp1.as_bytes(true);
-        let tp2_bytes = tp2.as_bytes(true);
+
+        let authenticator = PacketAuthenticator::new("LLWLXA_TPSHARESECRET");
+        let tp1_bytes = tp1.as_bytes(Some(&authenticator));
+        let tp2_bytes = tp2.as_bytes(Some(&authenticator));
         let real1_bytes: Vec<u8> =
             vec![83, 78, 0, 105, 3, 43, 220, 250, 219, 227, 84, 6, 40, 77, 138, 217, 220, 230,
                  189, 142, 123, 179, 2, 0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46,
