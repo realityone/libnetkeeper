@@ -195,6 +195,29 @@ impl PacketFactoryMac {
         Packet::new(PacketCode::CRegisterRequest, Self::calc_seq(), attributes)
     }
 
+    pub fn bubble_request(username: &str,
+                          ipaddress: Ipv4Addr,
+                          version: Option<&str>,
+                          mac_address: Option<&str>)
+                          -> Packet {
+        let version = match version {
+            Some(version) => version,
+            None => "1.1.0",
+        };
+        let mac_address = match mac_address {
+            Some(mac_address) => mac_address,
+            None => "10:dd:b1:d5:95:ca",
+        };
+
+        let client_type = &Self::client_type();
+        let attributes = vec![AttributeFactory::username(username),
+                              AttributeFactory::client_version(version),
+                              AttributeFactory::client_type(client_type),
+                              AttributeFactory::client_ip_address(ipaddress),
+                              AttributeFactory::mac_address(mac_address)];
+        Packet::new(PacketCode::CBubbleRequest, Self::calc_seq(), attributes)
+    }
+
     pub fn real_time_bubble_request(username: &str,
                                     ipaddress: Ipv4Addr,
                                     version: Option<&str>,

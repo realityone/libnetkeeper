@@ -114,4 +114,25 @@ mod tests {
                  48, 58, 100, 100, 58, 98, 49, 58, 100, 53, 58, 57, 53, 58, 99, 97];
         assert_eq!(*reg_bytes, real_bytes);
     }
+
+    #[test]
+    fn test_bubble_request() {
+        use std::str::FromStr;
+        use std::net::Ipv4Addr;
+        use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
+
+        let authenticator = PacketAuthenticator::new("LLWLXA");
+        let mut reg = PacketFactoryMac::bubble_request("05802278989@HYXY.XY",
+                                                       Ipv4Addr::from_str("10.8.0.4").unwrap(),
+                                                       None,
+                                                       None);
+        let reg_bytes = reg.as_bytes(Some(&authenticator));
+        let real_bytes: Vec<u8> =
+            vec![83, 78, 0, 96, 5, 1, 55, 73, 135, 12, 152, 235, 170, 225, 149, 154, 105, 61, 230,
+                 140, 53, 242, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89,
+                 88, 89, 46, 88, 89, 3, 0, 8, 49, 46, 49, 46, 48, 4, 0, 17, 77, 97, 99, 45, 83,
+                 105, 110, 103, 108, 101, 116, 78, 101, 116, 2, 0, 7, 10, 8, 0, 4, 9, 0, 20, 49,
+                 48, 58, 100, 100, 58, 98, 49, 58, 100, 53, 58, 57, 53, 58, 99, 97];
+        assert_eq!(*reg_bytes, real_bytes);
+    }
 }
