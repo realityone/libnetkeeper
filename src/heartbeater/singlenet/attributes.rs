@@ -35,6 +35,17 @@ pub enum AttributeType {
     TKeepAliveTime = 0x12,
     TKeepAliveInterval = 0x13,
     TKeepAliveData = 0x14,
+    TProcessCheckInterval = 0x15,
+    TProcessCheckList = 0x16,
+    TRealTimeBubbleServer = 0x17,
+    TRealTimeBubbleInterval = 0x18,
+    TWifiTransmitIPList = 0x19,
+    TWifiShareNumber = 0x1a,
+    TWifiShareCode = 0x1b,
+    TWifiShareErrorString = 0x1c,
+    TWifiShareBindRequired = 0x1d,
+    TPlugin2 = 0x1e,
+    TWifiRedirectURL = 0x1f,
 }
 
 #[derive(Debug)]
@@ -46,24 +57,7 @@ pub struct Attribute {
     data: Vec<u8>,
 }
 
-// not fully impleted attribute types
-// and you can see all attribute types bellow
-pub trait AttributeFactory {
-    fn username(username: &str) -> Attribute;
-    fn client_ip_address(ipaddress: Ipv4Addr) -> Attribute;
-    fn client_type(client_type: &str) -> Attribute;
-    fn client_version(client_version: &str) -> Attribute;
-    fn os_version(version: &str) -> Attribute;
-    fn os_language(language: &str) -> Attribute;
-    fn cpu_info(cpu_info: &str) -> Attribute;
-    fn mac_address(mac_address: &[u8; 4]) -> Attribute;
-    fn memory_size(size: u32) -> Attribute;
-    fn default_explorer(explorer: &str) -> Attribute;
-    fn keepalive_data(data: &str) -> Attribute;
-    fn keepalive_time(timestamp: u32) -> Attribute;
-
-    fn calc_keepalive_data(timestamp: Option<u32>, last_data: Option<&str>) -> String;
-}
+pub struct AttributeFactory;
 
 pub trait AttributeVec {
     fn as_bytes(&self) -> Vec<u8>;
@@ -108,8 +102,10 @@ impl Attribute {
     }
 }
 
-impl AttributeFactory for Attribute {
-    fn username(username: &str) -> Attribute {
+// not fully impleted attribute types
+// and you can see all attribute types bellow
+impl AttributeFactory {
+    pub fn username(username: &str) -> Attribute {
         Attribute::new("User-Name",
                        AttributeType::TAttribute,
                        AttributeType::TUsername,
@@ -117,7 +113,7 @@ impl AttributeFactory for Attribute {
                        username.as_bytes().to_vec())
     }
 
-    fn client_ip_address(ipaddress: Ipv4Addr) -> Attribute {
+    pub fn client_ip_address(ipaddress: Ipv4Addr) -> Attribute {
         Attribute::new("Client-IP-Address",
                        AttributeType::TAttribute,
                        AttributeType::TClientIPAddr,
@@ -125,7 +121,7 @@ impl AttributeFactory for Attribute {
                        ipaddress.octets().to_vec())
     }
 
-    fn client_type(client_type: &str) -> Attribute {
+    pub fn client_type(client_type: &str) -> Attribute {
         Attribute::new("Client-Type",
                        AttributeType::TAttribute,
                        AttributeType::TClientType,
@@ -133,7 +129,7 @@ impl AttributeFactory for Attribute {
                        client_type.as_bytes().to_vec())
     }
 
-    fn client_version(client_version: &str) -> Attribute {
+    pub fn client_version(client_version: &str) -> Attribute {
         Attribute::new("Client-Version",
                        AttributeType::TAttribute,
                        AttributeType::TClientVersion,
@@ -141,7 +137,7 @@ impl AttributeFactory for Attribute {
                        client_version.as_bytes().to_vec())
     }
 
-    fn os_version(version: &str) -> Attribute {
+    pub fn os_version(version: &str) -> Attribute {
         Attribute::new("OS-Version",
                        AttributeType::TAttribute,
                        AttributeType::TOSVersion,
@@ -149,7 +145,7 @@ impl AttributeFactory for Attribute {
                        version.as_bytes().to_vec())
     }
 
-    fn os_language(language: &str) -> Attribute {
+    pub fn os_language(language: &str) -> Attribute {
         Attribute::new("OS-Lang",
                        AttributeType::TAttribute,
                        AttributeType::TOSLang,
@@ -157,7 +153,7 @@ impl AttributeFactory for Attribute {
                        language.as_bytes().to_vec())
     }
 
-    fn cpu_info(cpu_info: &str) -> Attribute {
+    pub fn cpu_info(cpu_info: &str) -> Attribute {
         Attribute::new("CPU-Info",
                        AttributeType::TAttribute,
                        AttributeType::TCPUInfo,
@@ -165,15 +161,15 @@ impl AttributeFactory for Attribute {
                        cpu_info.as_bytes().to_vec())
     }
 
-    fn mac_address(mac_address: &[u8; 4]) -> Attribute {
+    pub fn mac_address(mac_address: &str) -> Attribute {
         Attribute::new("MAC-Address",
                        AttributeType::TAttribute,
                        AttributeType::TMACAddr,
                        AttributeValueType::TString,
-                       mac_address.to_vec())
+                       mac_address.as_bytes().to_vec())
     }
 
-    fn memory_size(size: u32) -> Attribute {
+    pub fn memory_size(size: u32) -> Attribute {
         let size_be = size.to_be();
         let size_bytes = integer_to_bytes(&size_be);
         Attribute::new("Memory-Size",
@@ -183,7 +179,7 @@ impl AttributeFactory for Attribute {
                        size_bytes.to_vec())
     }
 
-    fn default_explorer(explorer: &str) -> Attribute {
+    pub fn default_explorer(explorer: &str) -> Attribute {
         Attribute::new("Default-Explorer",
                        AttributeType::TAttribute,
                        AttributeType::TDefaultExplorer,
@@ -191,7 +187,7 @@ impl AttributeFactory for Attribute {
                        explorer.as_bytes().to_vec())
     }
 
-    fn keepalive_data(data: &str) -> Attribute {
+    pub fn keepalive_data(data: &str) -> Attribute {
         Attribute::new("KeepAlive-Data",
                        AttributeType::TAttribute,
                        AttributeType::TKeepAliveData,
@@ -199,7 +195,7 @@ impl AttributeFactory for Attribute {
                        data.as_bytes().to_vec())
     }
 
-    fn keepalive_time(timestamp: u32) -> Attribute {
+    pub fn keepalive_time(timestamp: u32) -> Attribute {
         let timestamp_be = timestamp.to_be();
         let timestamp_bytes = integer_to_bytes(&timestamp_be);
         Attribute::new("KeepAlive-Time",
@@ -209,7 +205,7 @@ impl AttributeFactory for Attribute {
                        timestamp_bytes.to_vec())
     }
 
-    fn calc_keepalive_data(timestamp: Option<u32>, last_data: Option<&str>) -> String {
+    pub fn calc_keepalive_data(timestamp: Option<u32>, last_data: Option<&str>) -> String {
         let timenow = match timestamp {
             Some(timestamp) => timestamp,
             None => current_timestamp(),
@@ -252,7 +248,7 @@ impl AttributeVec for Vec<Attribute> {
 
 #[test]
 fn test_attribute_gen_bytes() {
-    let un = Attribute::username("05802278989@HYXY.XY");
+    let un = AttributeFactory::username("05802278989@HYXY.XY");
     let assert_data: &[u8] = &[1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89,
                                88, 89, 46, 88, 89];
     assert_eq!(&un.as_bytes()[..], assert_data);
@@ -260,9 +256,9 @@ fn test_attribute_gen_bytes() {
 
 #[test]
 fn test_keepalive_data() {
-    let kp_data1 = Attribute::calc_keepalive_data(Some(1472483020), None);
-    let kp_data2 = Attribute::calc_keepalive_data(Some(1472483020),
-                                                  Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"));
+    let kp_data1 = AttributeFactory::calc_keepalive_data(Some(1472483020), None);
+    let kp_data2 = AttributeFactory::calc_keepalive_data(Some(1472483020),
+                                                         Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"));
     assert_eq!(kp_data1, "ffb0b2af94693fd1ba4c93e6b9aebd3f");
     assert_eq!(kp_data2, "d0dce2b013c8adfac646a2917fdab802");
 }

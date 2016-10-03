@@ -34,6 +34,9 @@ pub struct PacketAuthenticator {
     salt: String,
 }
 
+pub struct PacketFactoryMac;
+pub struct PacketFactoryWin;
+
 // len(magic_number) + len(length) + len(code) + len(seq) + \
 // len(authenticator)
 // 2 + 2 + 1 + 1 + 16
@@ -54,33 +57,6 @@ impl PacketAuthenticator {
         let mut authorization = [0; 16];
         authorization.clone_from_slice(&md5.finish().unwrap());
         authorization
-    }
-}
-
-pub trait PacketFactoryWin {
-    fn calc_seq(timestamp: Option<u32>) -> u8 {
-        // only be used in windows version,
-        let timestamp = match timestamp {
-            Some(timestamp) => timestamp,
-            None => current_timestamp(),
-        };
-
-        let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
-        let seq = ((tmp_num >> 0x10) & 0xff) as u8;
-        seq
-    }
-
-    fn thunder_protocol(username: &str,
-                        ipaddress: Ipv4Addr,
-                        timestamp: Option<u32>,
-                        last_keepalive_data: Option<&str>,
-                        version: Option<&str>)
-                        -> Packet;
-}
-
-pub trait PacketFactoryMac {
-    fn calc_seq() -> u8 {
-        0x1 as u8
     }
 }
 
@@ -128,14 +104,27 @@ impl Packet {
     }
 }
 
-impl PacketFactoryWin for Packet {
-    // FIXME: this protocol needs update
-    fn thunder_protocol(username: &str,
-                        ipaddress: Ipv4Addr,
-                        timestamp: Option<u32>,
-                        last_keepalive_data: Option<&str>,
-                        version: Option<&str>)
-                        -> Self {
+
+impl PacketFactoryWin {
+    fn calc_seq(timestamp: Option<u32>) -> u8 {
+        // only be used in windows version,
+        let timestamp = match timestamp {
+            Some(timestamp) => timestamp,
+            None => current_timestamp(),
+        };
+
+        let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
+        let seq = ((tmp_num >> 0x10) & 0xff) as u8;
+        seq
+    }
+
+    pub fn keepalive_request(username: &str,
+                             ipaddress: Ipv4Addr,
+                             timestamp: Option<u32>,
+                             last_keepalive_data: Option<&str>,
+                             version: Option<&str>)
+                             -> Packet {
+        // FIXME: this protocol needs update
         let version = match version {
             Some(version) => version,
             None => "1.2.22.36",
@@ -144,25 +133,97 @@ impl PacketFactoryWin for Packet {
             Some(timestamp) => Some(timestamp),
             None => Some(current_timestamp()),
         };
-        let keepalive_data = Attribute::calc_keepalive_data(timestamp, last_keepalive_data);
+        let keepalive_data = AttributeFactory::calc_keepalive_data(timestamp, last_keepalive_data);
 
         let attributes = vec![
-            Attribute::client_ip_address(ipaddress),
-            Attribute::client_version(version),
-            Attribute::keepalive_data(&keepalive_data),
-            Attribute::keepalive_time(timestamp.unwrap()),
-            Attribute::username(username),
+            AttributeFactory::client_ip_address(ipaddress),
+            AttributeFactory::client_version(version),
+            AttributeFactory::keepalive_data(&keepalive_data),
+            AttributeFactory::keepalive_time(timestamp.unwrap()),
+            AttributeFactory::username(username),
             ];
 
         Packet::new(PacketCode::CKeepAliveRequest,
-                    Packet::calc_seq(timestamp),
+                    Self::calc_seq(timestamp),
+                    attributes)
+    }
+}
+
+impl PacketFactoryMac {
+    fn calc_seq() -> u8 {
+        0x1 as u8
+    }
+
+    fn client_type() -> String {
+        "Mac-SingletNet".to_string()
+    }
+
+    pub fn register_request(username: &str,
+                            ipaddress: Ipv4Addr,
+                            version: Option<&str>,
+                            mac_address: Option<&str>,
+                            explorer: Option<&str>)
+                            -> Packet {
+        let version = match version {
+            Some(version) => version,
+            None => "1.1.0",
+        };
+        let mac_address = match mac_address {
+            Some(mac_address) => mac_address,
+            None => "10:dd:b1:d5:95:ca",
+        };
+        let explorer = match explorer {
+            Some(explorer) => explorer,
+            None => "",
+        };
+
+        let client_type = &Self::client_type();
+        let cpu_info = "Intel(R) Core(TM) i5-5287U CPU @ 2.90GHz";
+        let memory_size = 0x2000;
+        let os_version = "Mac OS X Version 10.12 (Build 16A323)";
+        let os_language = "zh_CN";
+        let attributes = vec![AttributeFactory::username(username),
+                              AttributeFactory::client_version(version),
+                              AttributeFactory::client_type(client_type),
+                              AttributeFactory::client_ip_address(ipaddress),
+                              AttributeFactory::mac_address(mac_address),
+                              AttributeFactory::default_explorer(explorer),
+                              AttributeFactory::cpu_info(cpu_info),
+                              AttributeFactory::memory_size(memory_size),
+                              AttributeFactory::os_version(os_version),
+                              AttributeFactory::os_language(os_language)];
+        Packet::new(PacketCode::CRegisterRequest, Self::calc_seq(), attributes)
+    }
+
+    pub fn real_time_bubble_request(username: &str,
+                                    ipaddress: Ipv4Addr,
+                                    version: Option<&str>,
+                                    mac_address: Option<&str>)
+                                    -> Packet {
+        let version = match version {
+            Some(version) => version,
+            None => "1.1.0",
+        };
+        let mac_address = match mac_address {
+            Some(mac_address) => mac_address,
+            None => "10:dd:b1:d5:95:ca",
+        };
+
+        let client_type = &Self::client_type();
+        let attributes = vec![AttributeFactory::username(username),
+                              AttributeFactory::client_version(version),
+                              AttributeFactory::client_type(client_type),
+                              AttributeFactory::client_ip_address(ipaddress),
+                              AttributeFactory::mac_address(mac_address)];
+        Packet::new(PacketCode::CRealTimeBubbleRequest,
+                    Self::calc_seq(),
                     attributes)
     }
 }
 
 #[test]
 fn test_calc_seq() {
-    let seq = Packet::calc_seq(Some(1472483020));
+    let seq = PacketFactoryWin::calc_seq(Some(1472483020));
     assert_eq!(seq, 43 as u8);
 }
 
