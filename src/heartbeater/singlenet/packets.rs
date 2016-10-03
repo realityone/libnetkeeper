@@ -10,8 +10,8 @@ pub struct Packet {
     magic_number: u16,
     length: u16,
     code: u8,
-    timeflag: u8,
-    signature: [u8; 16],
+    seq: u8,
+    authenticator: [u8; 16],
     attributes: Vec<Attribute>,
 }
 
@@ -26,14 +26,27 @@ pub trait PacketFactory {
 
 const HEADER_LENGTH: u16 = 22;
 
+fn calc_seq(timestamp: Option<u32>) -> u8 {
+    // maybe will used in windows version,
+    // but now we don't need this
+    let timestamp = match timestamp {
+        Some(timestamp) => timestamp,
+        None => current_timestamp(),
+    };
+
+    let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
+    let seq = ((tmp_num >> 0x10) & 0xff) as u8;
+    seq
+}
+
 impl Packet {
-    pub fn new(code: u8, timeflag: u8, attributes: Vec<Attribute>) -> Self {
+    pub fn new(code: u8, seq: u8, attributes: Vec<Attribute>) -> Self {
         let mut packet = Packet {
             magic_number: Self::magic_number(),
             length: 0,
             code: code,
-            timeflag: timeflag,
-            signature: [0; 16],
+            seq: seq,
+            authenticator: [0; 16],
             attributes: attributes,
         };
         packet.length = Self::calc_length(&packet);
@@ -44,10 +57,10 @@ impl Packet {
         HEADER_LENGTH + packet.attributes.length()
     }
 
-    pub fn as_bytes(&mut self, with_signature: bool) -> Box<Vec<u8>> {
+    pub fn as_bytes(&mut self, with_authenticator: bool) -> Box<Vec<u8>> {
         let mut bytes: Box<Vec<u8>> = Box::new(Vec::new());
-        if with_signature {
-            self.signature = Self::calc_signature(&self.as_bytes(false), None);
+        if with_authenticator {
+            self.authenticator = Self::calc_authenticator(&self.as_bytes(false), None);
         }
 
         {
@@ -61,14 +74,14 @@ impl Packet {
             bytes.extend(magic_number_bytes);
             bytes.extend(length_bytes);
             bytes.push(self.code);
-            bytes.push(self.timeflag);
-            bytes.extend(&self.signature);
+            bytes.push(self.seq);
+            bytes.extend(self.authenticator.iter());
             bytes.extend(attributes_bytes);
         }
         bytes
     }
 
-    pub fn calc_signature(bytes: &[u8], salt: Option<&str>) -> [u8; 16] {
+    pub fn calc_authenticator(bytes: &[u8], salt: Option<&str>) -> [u8; 16] {
         let salt = match salt {
             Some(salt) => salt,
             None => "LLWLXA_TPSHARESECRET",
@@ -82,17 +95,6 @@ impl Packet {
         let mut hashed_bytes = [0; 16];
         hashed_bytes.clone_from_slice(&md5.finish().unwrap());
         hashed_bytes
-    }
-
-    fn calc_timeflag(timestamp: Option<u32>) -> u8 {
-        let timestamp = match timestamp {
-            Some(timestamp) => timestamp,
-            None => current_timestamp(),
-        };
-
-        let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
-        let timeflag = ((tmp_num >> 0x10) & 0xff) as u8;
-        timeflag
     }
 
     fn magic_number() -> u16 {
@@ -125,26 +127,26 @@ impl PacketFactory for Packet {
             Attribute::username(username),
             ];
 
-        Packet::new(0x3, Self::calc_timeflag(timestamp), attributes)
+        Packet::new(0x3, calc_seq(timestamp), attributes)
     }
 }
 
 #[test]
-fn test_calc_timeflag() {
-    let timeflag = Packet::calc_timeflag(Some(1472483020));
-    assert_eq!(timeflag, 43 as u8);
+fn test_calc_seq() {
+    let seq = calc_seq(Some(1472483020));
+    assert_eq!(seq, 43 as u8);
 }
 
 #[test]
-fn test_calc_signature() {
+fn test_calc_authenticator() {
     let data: &[u8] = &[83, 78, 0, 105, 3, 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
                         0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54, 20, 0,
                         35, 100, 48, 100, 99, 101, 50, 98, 48, 49, 51, 99, 56, 97, 100, 102, 97,
                         99, 54, 52, 54, 97, 50, 57, 49, 55, 102, 100, 97, 98, 56, 48, 50, 18, 0,
                         7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57,
                         64, 72, 89, 88, 89, 46, 88, 89];
-    let hashed_bytes = Packet::calc_signature(data, None);
-    let real_hash_bytes: [u8; 16] = [240, 67, 87, 201, 164, 134, 179, 142, 110, 163, 208, 119,
-                                     121, 90, 173, 75];
-    assert_eq!(hashed_bytes, real_hash_bytes);
+    let authenticator = Packet::calc_authenticator(data, None);
+    let real_authenticator: [u8; 16] = [240, 67, 87, 201, 164, 134, 179, 142, 110, 163, 208, 119,
+                                        121, 90, 173, 75];
+    assert_eq!(authenticator, real_authenticator);
 }
