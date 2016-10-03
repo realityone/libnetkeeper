@@ -5,17 +5,39 @@ use openssl::crypto::hash::{Hasher, Type};
 use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeFactory};
 use utils::{current_timestamp, integer_to_bytes};
 
+#[derive(Debug, Copy, Clone)]
+pub enum PacketCode {
+    CRegisterRequest = 0x1,
+    CRegisterResponse = 0x2,
+    CKeepAliveRequest = 0x3,
+    CKeepAliveResponse = 0x4,
+    CBubbleRequest = 0x5,
+    CBubbleResponse = 0x6,
+    CChannelRequest = 0x7,
+    CChannelResponse = 0x8,
+    CPluginRequest = 0x9,
+    CPluginResponse = 0xa,
+    CRealTimeBubbleRequest = 0xb,
+    CRealTimeBubbleResponse = 0xc,
+}
+
 #[derive(Debug)]
 pub struct Packet {
     magic_number: u16,
     length: u16,
-    code: u8,
+    code: PacketCode,
     seq: u8,
     authenticator: [u8; 16],
     attributes: Vec<Attribute>,
 }
 
-pub trait PacketFactory {
+// len(magic_number) + len(length) + len(code) + len(seq) + \
+// len(authenticator)
+// 2 + 2 + 1 + 1 + 16
+const HEADER_LENGTH: u16 = 22;
+
+pub trait PacketFactoryWin {
+    // FIXME: this protocol needs update
     fn thunder_protocol(username: &str,
                         ipaddress: Ipv4Addr,
                         timestamp: Option<u32>,
@@ -24,7 +46,8 @@ pub trait PacketFactory {
                         -> Packet;
 }
 
-const HEADER_LENGTH: u16 = 22;
+pub trait PacketFactoryMac {}
+
 
 fn calc_seq(timestamp: Option<u32>) -> u8 {
     // maybe will used in windows version,
@@ -40,7 +63,7 @@ fn calc_seq(timestamp: Option<u32>) -> u8 {
 }
 
 impl Packet {
-    pub fn new(code: u8, seq: u8, attributes: Vec<Attribute>) -> Self {
+    pub fn new(code: PacketCode, seq: u8, attributes: Vec<Attribute>) -> Self {
         let mut packet = Packet {
             magic_number: Self::magic_number(),
             length: 0,
@@ -70,10 +93,11 @@ impl Packet {
             let magic_number_bytes = integer_to_bytes(&magic_number_be);
             let length_bytes = integer_to_bytes(&length_be);
             let attributes_bytes = self.attributes.as_bytes();
+            let raw_packet_code = self.code as u8;
 
             bytes.extend(magic_number_bytes);
             bytes.extend(length_bytes);
-            bytes.push(self.code);
+            bytes.push(raw_packet_code);
             bytes.push(self.seq);
             bytes.extend(self.authenticator.iter());
             bytes.extend(attributes_bytes);
@@ -102,7 +126,7 @@ impl Packet {
     }
 }
 
-impl PacketFactory for Packet {
+impl PacketFactoryWin for Packet {
     fn thunder_protocol(username: &str,
                         ipaddress: Ipv4Addr,
                         timestamp: Option<u32>,
@@ -127,7 +151,9 @@ impl PacketFactory for Packet {
             Attribute::username(username),
             ];
 
-        Packet::new(0x3, calc_seq(timestamp), attributes)
+        Packet::new(PacketCode::CKeepAliveRequest,
+                    calc_seq(timestamp),
+                    attributes)
     }
 }
 

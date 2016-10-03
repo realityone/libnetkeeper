@@ -32,7 +32,7 @@ mod tests {
     fn test_thunder_protocol() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{Packet, PacketFactory};
+        use heartbeater::singlenet::packets::{Packet, PacketFactoryWin};
 
         let mut tp1 = Packet::thunder_protocol("05802278989@HYXY.XY",
                                                Ipv4Addr::from_str("10.0.0.1").unwrap(),
