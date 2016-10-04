@@ -77,7 +77,7 @@ impl Packet {
         HEADER_LENGTH + packet.attributes.length()
     }
 
-    pub fn as_bytes(&mut self, authenticator: Option<&PacketAuthenticator>) -> Box<Vec<u8>> {
+    pub fn as_bytes(&self, authenticator: Option<&PacketAuthenticator>) -> Box<Vec<u8>> {
         let mut bytes: Box<Vec<u8>> = Box::new(Vec::new());
         let authorization = match authenticator {
             Some(authenticator) => authenticator.authenticate(&self.as_bytes(None)),

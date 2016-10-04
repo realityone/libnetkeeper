@@ -34,16 +34,16 @@ mod tests {
         use std::net::Ipv4Addr;
         use heartbeater::singlenet::packets::{PacketFactoryWin, PacketAuthenticator};
 
-        let mut ka1 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
-                                                          Ipv4Addr::from_str("10.0.0.1").unwrap(),
-                                                          Some(1472483020),
-                                                          None,
-                                                          None);
-        let mut ka2 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
-                                                          Ipv4Addr::from_str("10.0.0.1").unwrap(),
-                                                          Some(1472483020),
-                                                          Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"),
-                                                          None);
+        let ka1 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
+                                                      Ipv4Addr::from_str("10.0.0.1").unwrap(),
+                                                      Some(1472483020),
+                                                      None,
+                                                      None);
+        let ka2 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
+                                                      Ipv4Addr::from_str("10.0.0.1").unwrap(),
+                                                      Some(1472483020),
+                                                      Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"),
+                                                      None);
 
         let authenticator = PacketAuthenticator::new("LLWLXA_TPSHARESECRET");
         let ka1_bytes = ka1.as_bytes(Some(&authenticator));
@@ -73,11 +73,11 @@ mod tests {
         use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
-        let mut reg = PacketFactoryMac::register_request("05802278989@HYXY.XY",
-                                                         Ipv4Addr::from_str("10.8.0.4").unwrap(),
-                                                         None,
-                                                         None,
-                                                         None);
+        let reg = PacketFactoryMac::register_request("05802278989@HYXY.XY",
+                                                     Ipv4Addr::from_str("10.8.0.4").unwrap(),
+                                                     None,
+                                                     None,
+                                                     None);
         let reg_bytes = reg.as_bytes(Some(&authenticator));
         let real_bytes: Vec<u8> =
             vec![83, 78, 0, 197, 1, 1, 111, 131, 14, 200, 48, 216, 23, 80, 223, 56, 164, 152, 147,
@@ -100,11 +100,11 @@ mod tests {
         use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
-        let mut reg = PacketFactoryMac::real_time_bubble_request("05802278989@HYXY.XY",
-                                                                 Ipv4Addr::from_str("10.8.0.4")
-                                                                     .unwrap(),
-                                                                 None,
-                                                                 None);
+        let reg = PacketFactoryMac::real_time_bubble_request("05802278989@HYXY.XY",
+                                                             Ipv4Addr::from_str("10.8.0.4")
+                                                                 .unwrap(),
+                                                             None,
+                                                             None);
         let reg_bytes = reg.as_bytes(Some(&authenticator));
         let real_bytes: Vec<u8> =
             vec![83, 78, 0, 96, 11, 1, 166, 14, 39, 63, 156, 69, 236, 221, 210, 50, 156, 211, 85,
@@ -122,10 +122,10 @@ mod tests {
         use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
-        let mut reg = PacketFactoryMac::bubble_request("05802278989@HYXY.XY",
-                                                       Ipv4Addr::from_str("10.8.0.4").unwrap(),
-                                                       None,
-                                                       None);
+        let reg = PacketFactoryMac::bubble_request("05802278989@HYXY.XY",
+                                                   Ipv4Addr::from_str("10.8.0.4").unwrap(),
+                                                   None,
+                                                   None);
         let reg_bytes = reg.as_bytes(Some(&authenticator));
         let real_bytes: Vec<u8> =
             vec![83, 78, 0, 96, 5, 1, 55, 73, 135, 12, 152, 235, 170, 225, 149, 154, 105, 61, 230,
