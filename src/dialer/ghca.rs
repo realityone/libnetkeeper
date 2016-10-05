@@ -48,10 +48,10 @@ impl GhcaDialer {
         };
 
         let delta = cursor - match_flag;
-        let prefix_len = cursor + match_flag + 1;
-        let suffix_len = pwd_len - 1 - delta;
+        let prefix_len = delta + 1;
+        let suffix_len = pwd_len - prefix_len;
         let pwd_prefix = &password[..prefix_len as usize];
-        let pwd_suffix = &password[(delta + 1) as usize..(delta + 1 + suffix_len) as usize];
+        let pwd_suffix = &password[prefix_len as usize..pwd_len as usize];
 
         let md5_hash_prefix;
         {
