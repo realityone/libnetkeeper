@@ -47,10 +47,9 @@ impl NetkeeperDialer {
             pin27_byte[5] = (time_hash[3] & 0x03) << 4;
 
             for i in 0..6 {
-                if ((pin27_byte[i] + 0x20)) < 0x40 {
-                    pin27_byte[i] = pin27_byte[i] + 0x20;
-                } else {
-                    pin27_byte[i] = pin27_byte[i] + 0x21;
+                pin27_byte[i] = pin27_byte[i] + 0x20;
+                if pin27_byte[i] > 0x40 {
+                    pin27_byte[i] += 1;
                 }
             }
 
