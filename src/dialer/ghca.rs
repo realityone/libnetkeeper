@@ -51,14 +51,14 @@ impl GhcaDialer {
         };
 
         let delta = cursor - match_flag;
-        let prefix_len = delta + 1;
-        let suffix_len = pwd_len - prefix_len;
-        let pwd_prefix = &password[..prefix_len as usize];
-        let pwd_suffix = &password[prefix_len as usize..pwd_len as usize];
-
         let md5_hash_prefix;
         {
             let mut md5 = Hasher::new(Type::MD5).unwrap();
+
+            let prefix_len = delta + 1;
+            let suffix_len = pwd_len - prefix_len;
+            let pwd_prefix = &password[..prefix_len as usize];
+            let pwd_suffix = &password[prefix_len as usize..pwd_len as usize];
             let sec_timestamp_be = sec_timestamp.to_be();
             let sec_timestamp_bytes = integer_to_bytes(&sec_timestamp_be);
 
