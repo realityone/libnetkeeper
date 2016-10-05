@@ -27,6 +27,11 @@ impl GhcaDialer {
                            fst_timestamp: Option<u32>,
                            sec_timestamp: Option<u32>)
                            -> Result<String, &'static str> {
+        let name_len = username.len() as u32;
+        let pwd_len = password.len() as u32;
+        if name_len >= 60 || pwd_len >= 60 {
+            return Err("username and password must be shorter than 60 characters.");
+        }
         let fst_timestamp = match fst_timestamp {
             Some(fst_timestamp) => fst_timestamp,
             None => current_timestamp(),
@@ -35,11 +40,6 @@ impl GhcaDialer {
             Some(sec_timestamp) => sec_timestamp,
             None => current_timestamp(),
         };
-        let name_len = username.len() as u32;
-        let pwd_len = password.len() as u32;
-        if name_len >= 60 || pwd_len >= 60 {
-            return Err("username and password must be shorter than 60 characters.");
-        }
 
         let mut cursor = fst_timestamp % pwd_len;
         if cursor < 1 {
