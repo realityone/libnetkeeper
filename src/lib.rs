@@ -29,6 +29,18 @@ mod tests {
     }
 
     #[test]
+    fn test_ghca_username_encrypt() {
+        use dialer::ghca::load_default_dialer;
+        let dialer = load_default_dialer();
+        let encrypted = dialer.encrypt_account("05802278989@HYXY.XY",
+                                               "123456",
+                                               Some(0x57F486F7),
+                                               Some(0x57F48719));
+        assert_eq!(encrypted,
+                   "~ghca57F487192023484F1BD1D9AB5DC5013405802278989@HYXY.XY");
+    }
+
+    #[test]
     fn test_keepalive_request() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
