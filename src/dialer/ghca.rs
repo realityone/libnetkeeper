@@ -6,6 +6,11 @@ use openssl::crypto::hash::{Hasher, Type};
 use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
+pub enum Configuration {
+    SichuanMac,
+}
+
+#[derive(Debug)]
 pub struct GhcaDialer {
     pub share_key: String,
     pub prefix: String,
@@ -88,8 +93,30 @@ impl GhcaDialer {
     }
 }
 
+impl Configuration {
+    pub fn share_key(&self) -> &'static str {
+        match *self {
+            Configuration::SichuanMac => "aI0fC8RslXg6HXaKAUa6kpvcAXszvTcxYP8jmS9sBnVfIqTRdJS1eZNHmBjKN28j",
+        }
+    }
+
+    pub fn prefix(&self) -> &'static str {
+        match *self {
+            _ => "~ghca",
+        }
+    }
+
+    pub fn version(&self) -> &'static str {
+        match *self {
+            Configuration::SichuanMac => "2023",
+        }
+    }
+
+    pub fn dialer(&self) -> GhcaDialer {
+        GhcaDialer::new(self.share_key(), self.prefix(), self.version())
+    }
+}
+
 pub fn load_default_dialer() -> GhcaDialer {
-    GhcaDialer::new("aI0fC8RslXg6HXaKAUa6kpvcAXszvTcxYP8jmS9sBnVfIqTRdJS1eZNHmBjKN28j",
-                    "~ghca",
-                    "2023")
+    Configuration::SichuanMac.dialer()
 }

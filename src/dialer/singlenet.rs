@@ -4,6 +4,11 @@ use std::slice;
 use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
+pub enum Configuration {
+    Hainan,
+}
+
+#[derive(Debug)]
 pub struct SingleNetDialer {
     share_key: String,
     secret_key: String,
@@ -113,10 +118,34 @@ impl SingleNetDialer {
     }
 }
 
+impl Configuration {
+    pub fn share_key(&self) -> &'static str {
+        match *self {
+            Configuration::Hainan => "hngx01",
+        }
+    }
+
+    pub fn secret_key(&self) -> &'static str {
+        match *self {
+            Configuration::Hainan => "000c29270712",
+        }
+    }
+
+    pub fn key_table(&self) -> &'static str {
+        match *self {
+            Configuration::Hainan => {
+                "abcdefghijklmnopqrstuvwxyz1234567890ZYXWVUTSRQPONMLKJIHGFEDCBA:_"
+            }
+        }
+    }
+
+    pub fn dialer(&self) -> SingleNetDialer {
+        SingleNetDialer::new(self.share_key(), self.secret_key(), self.key_table())
+    }
+}
+
 pub fn load_default_dialer() -> SingleNetDialer {
-    SingleNetDialer::new("hngx01",
-                         "000c29270712",
-                         "abcdefghijklmnopqrstuvwxyz1234567890ZYXWVUTSRQPONMLKJIHGFEDCBA:_")
+    Configuration::Hainan.dialer()
 }
 
 #[test]

@@ -5,6 +5,23 @@ use openssl::crypto::hash::{Hasher, Type};
 
 use utils::{current_timestamp, integer_to_bytes};
 
+// copy from https://github.com/miao1007/Openwrt-NetKeeper
+#[derive(Debug)]
+pub enum Configuration {
+    Zhejiang,
+    SingleNet,
+    Enterprise,
+    Chongqing,
+    Chongqing2,
+    Wuhan,
+    Qinghai,
+    Xinjiang,
+    Hebei,
+    Shandong,
+    Shanxi,
+    Gansu,
+}
+
 #[derive(Debug)]
 pub struct NetkeeperDialer {
     pub share_key: String,
@@ -77,6 +94,37 @@ impl NetkeeperDialer {
     }
 }
 
+impl Configuration {
+    pub fn share_key(&self) -> &'static str {
+        match *self {
+            Configuration::Zhejiang => "zjxinlisx01",
+            Configuration::SingleNet => "singlenet01",
+            Configuration::Enterprise => "zjxinlisx02",
+            Configuration::Chongqing => "cqxinliradius002",
+            Configuration::Chongqing2 => "xianxinli1radius",
+            Configuration::Wuhan => "hubtxinli01",
+            Configuration::Qinghai => "shd@xiaoyuan0002",
+            Configuration::Xinjiang => "xinjiang@0724",
+            Configuration::Hebei => "hebeicncxinli002",
+            Configuration::Shandong => "shandongmobile13",
+            Configuration::Shanxi => "sh_xi@xiaoyuan01",
+            Configuration::Gansu => "xiaoyuanyixun001",
+        }
+    }
+
+    pub fn prefix(&self) -> &'static str {
+        match *self {
+            _ => "\r\n",
+        }
+    }
+
+    pub fn dialer(&self) -> NetkeeperDialer {
+        match *self {
+            _ => NetkeeperDialer::new(self.share_key(), self.prefix()),
+        }
+    }
+}
+
 pub fn load_default_dialer() -> NetkeeperDialer {
-    NetkeeperDialer::new("zjxinlisx01", "\r\n")
+    Configuration::Zhejiang.dialer()
 }
