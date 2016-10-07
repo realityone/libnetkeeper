@@ -3,6 +3,7 @@ use std::str;
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
 
+use dialer::Dialer;
 use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
@@ -113,6 +114,10 @@ impl Configuration {
     }
 }
 
-pub fn load_dialer(config: Configuration) -> GhcaDialer {
-    GhcaDialer::new(config.share_key(), config.prefix(), config.version())
+impl Dialer for GhcaDialer {
+    type C = Configuration;
+
+    fn load_from_config(config: Self::C) -> Self {
+        GhcaDialer::new(config.share_key(), config.prefix(), config.version())
+    }
 }

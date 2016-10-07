@@ -1,6 +1,7 @@
 use std::str;
 use std::slice;
 
+use dialer::Dialer;
 use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug)]
@@ -140,10 +141,13 @@ impl Configuration {
     }
 }
 
-pub fn load_dialer(config: Configuration) -> SingleNetDialer {
-    SingleNetDialer::new(config.share_key(), config.secret_key(), config.key_table())
-}
+impl Dialer for SingleNetDialer {
+    type C = Configuration;
 
+    fn load_from_config(config: Self::C) -> Self {
+        SingleNetDialer::new(config.share_key(), config.secret_key(), config.key_table())
+    }
+}
 
 #[test]
 fn test_hash_key() {

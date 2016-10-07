@@ -3,6 +3,7 @@ use std::str;
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
 
+use dialer::Dialer;
 use utils::{current_timestamp, integer_to_bytes};
 
 // copy from https://github.com/miao1007/Openwrt-NetKeeper
@@ -119,6 +120,10 @@ impl Configuration {
     }
 }
 
-pub fn load_dialer(config: Configuration) -> NetkeeperDialer {
-    NetkeeperDialer::new(config.share_key(), config.prefix())
+impl Dialer for NetkeeperDialer {
+    type C = Configuration;
+
+    fn load_from_config(config: Self::C) -> Self {
+        NetkeeperDialer::new(config.share_key(), config.prefix())
+    }
 }
