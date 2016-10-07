@@ -2,7 +2,8 @@ use std::net::Ipv4Addr;
 
 use openssl::crypto::hash::{Hasher, Type};
 
-use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeFactory};
+use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
+                                         KeepaliveDataCalculator};
 use utils::{current_timestamp, integer_to_bytes};
 
 #[derive(Debug, Copy, Clone)]
@@ -133,15 +134,14 @@ impl PacketFactoryWin {
             Some(timestamp) => Some(timestamp),
             None => Some(current_timestamp()),
         };
-        let keepalive_data = AttributeFactory::calc_keepalive_data(timestamp, last_keepalive_data);
+        let keepalive_data = KeepaliveDataCalculator::calculate(timestamp, last_keepalive_data);
 
-        let attributes = vec![
-            AttributeFactory::client_ip_address(ipaddress),
-            AttributeFactory::client_version(version),
-            AttributeFactory::keepalive_data(&keepalive_data),
-            AttributeFactory::keepalive_time(timestamp.unwrap()),
-            AttributeFactory::username(username),
-            ];
+        let attributes =
+            vec![Attribute::from_type(AttributeType::TClientIPAddress, &ipaddress),
+                 Attribute::from_type(AttributeType::TClientVersion, &version.to_string()),
+                 Attribute::from_type(AttributeType::TKeepAliveData, &keepalive_data.to_string()),
+                 Attribute::from_type(AttributeType::TKeepAliveTime, &timestamp.unwrap()),
+                 Attribute::from_type(AttributeType::TUserName, &username.to_string())];
 
         Packet::new(PacketCode::CKeepAliveRequest,
                     Self::calc_seq(timestamp),
@@ -176,22 +176,24 @@ impl PacketFactoryMac {
             Some(explorer) => explorer,
             None => "",
         };
-
         let client_type = &Self::client_type();
         let cpu_info = "Intel(R) Core(TM) i5-5287U CPU @ 2.90GHz";
         let memory_size = 0x2000;
         let os_version = "Mac OS X Version 10.12 (Build 16A323)";
         let os_language = "zh_CN";
-        let attributes = vec![AttributeFactory::username(username),
-                              AttributeFactory::client_version(version),
-                              AttributeFactory::client_type(client_type),
-                              AttributeFactory::client_ip_address(ipaddress),
-                              AttributeFactory::mac_address(mac_address),
-                              AttributeFactory::default_explorer(explorer),
-                              AttributeFactory::cpu_info(cpu_info),
-                              AttributeFactory::memory_size(memory_size),
-                              AttributeFactory::os_version(os_version),
-                              AttributeFactory::os_language(os_language)];
+
+        let attributes =
+            vec![Attribute::from_type(AttributeType::TUserName, &username.to_string()),
+                 Attribute::from_type(AttributeType::TClientVersion, &version.to_string()),
+                 Attribute::from_type(AttributeType::TClientType, &client_type.to_string()),
+                 Attribute::from_type(AttributeType::TClientIPAddress, &ipaddress),
+                 Attribute::from_type(AttributeType::TMACAddress, &mac_address.to_string()),
+                 Attribute::from_type(AttributeType::TDefaultExplorer, &explorer.to_string()),
+                 Attribute::from_type(AttributeType::TCPUInfo, &cpu_info.to_string()),
+                 Attribute::from_type(AttributeType::TMemorySize, &memory_size),
+                 Attribute::from_type(AttributeType::TOSVersion, &os_version.to_string()),
+                 Attribute::from_type(AttributeType::TOSLang, &os_language.to_string())];
+
         Packet::new(PacketCode::CRegisterRequest, Self::calc_seq(), attributes)
     }
 
@@ -208,13 +210,15 @@ impl PacketFactoryMac {
             Some(mac_address) => mac_address,
             None => "10:dd:b1:d5:95:ca",
         };
-
         let client_type = &Self::client_type();
-        let attributes = vec![AttributeFactory::username(username),
-                              AttributeFactory::client_version(version),
-                              AttributeFactory::client_type(client_type),
-                              AttributeFactory::client_ip_address(ipaddress),
-                              AttributeFactory::mac_address(mac_address)];
+
+        let attributes =
+            vec![Attribute::from_type(AttributeType::TUserName, &username.to_string()),
+                 Attribute::from_type(AttributeType::TClientVersion, &version.to_string()),
+                 Attribute::from_type(AttributeType::TClientType, &client_type.to_string()),
+                 Attribute::from_type(AttributeType::TClientIPAddress, &ipaddress),
+                 Attribute::from_type(AttributeType::TMACAddress, &mac_address.to_string())];
+
         Packet::new(PacketCode::CBubbleRequest, Self::calc_seq(), attributes)
     }
 
@@ -231,13 +235,15 @@ impl PacketFactoryMac {
             Some(mac_address) => mac_address,
             None => "10:dd:b1:d5:95:ca",
         };
-
         let client_type = &Self::client_type();
-        let attributes = vec![AttributeFactory::username(username),
-                              AttributeFactory::client_version(version),
-                              AttributeFactory::client_type(client_type),
-                              AttributeFactory::client_ip_address(ipaddress),
-                              AttributeFactory::mac_address(mac_address)];
+
+        let attributes =
+            vec![Attribute::from_type(AttributeType::TUserName, &username.to_string()),
+                 Attribute::from_type(AttributeType::TClientVersion, &version.to_string()),
+                 Attribute::from_type(AttributeType::TClientType, &client_type.to_string()),
+                 Attribute::from_type(AttributeType::TClientIPAddress, &ipaddress),
+                 Attribute::from_type(AttributeType::TMACAddress, &mac_address.to_string())];
+
         Packet::new(PacketCode::CRealTimeBubbleRequest,
                     Self::calc_seq(),
                     attributes)

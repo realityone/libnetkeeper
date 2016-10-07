@@ -8,56 +8,76 @@ use utils::{current_timestamp, integer_to_bytes};
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
     TInteger = 0x0,
-    TIPAddr = 0x1, // or Integer array?
+    TIPAddress = 0x1, // or Integer array?
     TString = 0x2,
+    TGroup = 0x3, // Attributes group
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeType {
-    TAttribute = 0x0, // `TAttribute` is the first type of Attribute
-    TUsername = 0x1,
-    TClientIPAddr = 0x2,
-    TClientVersion = 0x3,
-    TClientType = 0x4,
-    TOSVersion = 0x5,
-    TOSLang = 0x6,
-    TAdapterInfo = 0x7,
-    TCPUInfo = 0x8,
-    TMACAddr = 0x9,
-    TMemorySize = 0xa,
-    TDefaultExplorer = 0xb,
-    TBubble = 0xc,
-    TChannel = 0xd,
-    TPlugin = 0xe,
-    TUpdateVersion = 0xf,
-    TUpdateDownloadURL = 0x10,
-    TUpdateDescription = 0x11,
-    TKeepAliveTime = 0x12,
-    TKeepAliveInterval = 0x13,
-    TKeepAliveData = 0x14,
-    TProcessCheckInterval = 0x15,
-    TProcessCheckList = 0x16,
-    TRealTimeBubbleServer = 0x17,
-    TRealTimeBubbleInterval = 0x18,
-    TWifiTransmitIPList = 0x19,
-    TWifiShareNumber = 0x1a,
-    TWifiShareCode = 0x1b,
-    TWifiShareErrorString = 0x1c,
-    TWifiShareBindRequired = 0x1d,
-    TPlugin2 = 0x1e,
-    TWifiRedirectURL = 0x1f,
+    TAttribute,
+    TUserName,
+    TClientIPAddress,
+    TClientVersion,
+    TClientType,
+    TOSVersion,
+    TOSLang,
+    TAdapterInfo,
+    TCPUInfo,
+    TMACAddress,
+    TMemorySize,
+    TDefaultExplorer,
+    TBubble,
+    TBubbleId,
+    TBubbleTitle,
+    TBubbleContext,
+    TBubbleContextURL,
+    TBubbleKeepTime,
+    TBubbleDelayTime,
+    TBubbleType,
+    TChannel,
+    TChannelNote,
+    TChannelContextURL,
+    TChannelContextURL2,
+    TChannelOrder,
+    TPlugin,
+    TPluginName,
+    TPluginConfigureData,
+    TUpdateVersion,
+    TUpdateDownloadURL,
+    TUpdateDescription,
+    TKeepAliveTime,
+    TKeepAliveInterval,
+    TKeepAliveData,
+    TProcessCheckInterval,
+    TProcessCheckList,
+    TRealTimeBubbleServer,
+    TRealTimeBubbleInterval,
+    TWifiTransmitIPList,
+    TWifiShareNumber,
+    TWifiShareCode,
+    TWifiShareErrorString,
+    TWifiShareBindRequired,
+    TPlugin2,
+    TDeviceSN,
+    TDeviceType,
+    TWifiRedirectURL,
 }
 
 #[derive(Debug)]
 pub struct Attribute {
-    typename: String,
-    parent_id: AttributeType,
-    attribute_id: AttributeType,
-    value_type_id: AttributeValueType,
+    name: String,
+    parent_id: u8,
+    attribute_id: u8,
+    value_type_id: u8,
     data: Vec<u8>,
 }
 
-pub struct AttributeFactory;
+pub struct KeepaliveDataCalculator;
+
+pub trait AttributeValue {
+    fn as_bytes(&self) -> Vec<u8>;
+}
 
 pub trait AttributeVec {
     fn as_bytes(&self) -> Vec<u8>;
@@ -65,14 +85,14 @@ pub trait AttributeVec {
 }
 
 impl Attribute {
-    pub fn new(typename: &str,
-               parent_id: AttributeType,
-               attribute_id: AttributeType,
-               value_type_id: AttributeValueType,
+    pub fn new(name: &str,
+               parent_id: u8,
+               attribute_id: u8,
+               value_type_id: u8,
                data: Vec<u8>)
                -> Self {
         Attribute {
-            typename: typename.to_string(),
+            name: name.to_string(),
             parent_id: parent_id,
             attribute_id: attribute_id,
             value_type_id: value_type_id,
@@ -80,8 +100,14 @@ impl Attribute {
         }
     }
 
-    fn data_length(&self) -> u16 {
-        self.data.len() as u16
+    pub fn from_type<V>(attribute_type: AttributeType, value: &V) -> Self
+        where V: AttributeValue
+    {
+        Self::new(attribute_type.name(),
+                  attribute_type.parent().id(),
+                  attribute_type.id(),
+                  attribute_type.value_type() as u8,
+                  value.as_bytes().to_vec())
     }
 
     pub fn length(&self) -> u16 {
@@ -100,112 +126,14 @@ impl Attribute {
         }
         attribute_bytes
     }
+
+    fn data_length(&self) -> u16 {
+        self.data.len() as u16
+    }
 }
 
-// not fully impleted attribute types
-// and you can see all attribute types bellow
-impl AttributeFactory {
-    pub fn username(username: &str) -> Attribute {
-        Attribute::new("User-Name",
-                       AttributeType::TAttribute,
-                       AttributeType::TUsername,
-                       AttributeValueType::TString,
-                       username.as_bytes().to_vec())
-    }
-
-    pub fn client_ip_address(ipaddress: Ipv4Addr) -> Attribute {
-        Attribute::new("Client-IP-Address",
-                       AttributeType::TAttribute,
-                       AttributeType::TClientIPAddr,
-                       AttributeValueType::TIPAddr,
-                       ipaddress.octets().to_vec())
-    }
-
-    pub fn client_type(client_type: &str) -> Attribute {
-        Attribute::new("Client-Type",
-                       AttributeType::TAttribute,
-                       AttributeType::TClientType,
-                       AttributeValueType::TString,
-                       client_type.as_bytes().to_vec())
-    }
-
-    pub fn client_version(client_version: &str) -> Attribute {
-        Attribute::new("Client-Version",
-                       AttributeType::TAttribute,
-                       AttributeType::TClientVersion,
-                       AttributeValueType::TString,
-                       client_version.as_bytes().to_vec())
-    }
-
-    pub fn os_version(version: &str) -> Attribute {
-        Attribute::new("OS-Version",
-                       AttributeType::TAttribute,
-                       AttributeType::TOSVersion,
-                       AttributeValueType::TString,
-                       version.as_bytes().to_vec())
-    }
-
-    pub fn os_language(language: &str) -> Attribute {
-        Attribute::new("OS-Lang",
-                       AttributeType::TAttribute,
-                       AttributeType::TOSLang,
-                       AttributeValueType::TString,
-                       language.as_bytes().to_vec())
-    }
-
-    pub fn cpu_info(cpu_info: &str) -> Attribute {
-        Attribute::new("CPU-Info",
-                       AttributeType::TAttribute,
-                       AttributeType::TCPUInfo,
-                       AttributeValueType::TString,
-                       cpu_info.as_bytes().to_vec())
-    }
-
-    pub fn mac_address(mac_address: &str) -> Attribute {
-        Attribute::new("MAC-Address",
-                       AttributeType::TAttribute,
-                       AttributeType::TMACAddr,
-                       AttributeValueType::TString,
-                       mac_address.as_bytes().to_vec())
-    }
-
-    pub fn memory_size(size: u32) -> Attribute {
-        let size_be = size.to_be();
-        let size_bytes = integer_to_bytes(&size_be);
-        Attribute::new("Memory-Size",
-                       AttributeType::TAttribute,
-                       AttributeType::TMemorySize,
-                       AttributeValueType::TInteger,
-                       size_bytes.to_vec())
-    }
-
-    pub fn default_explorer(explorer: &str) -> Attribute {
-        Attribute::new("Default-Explorer",
-                       AttributeType::TAttribute,
-                       AttributeType::TDefaultExplorer,
-                       AttributeValueType::TString,
-                       explorer.as_bytes().to_vec())
-    }
-
-    pub fn keepalive_data(data: &str) -> Attribute {
-        Attribute::new("KeepAlive-Data",
-                       AttributeType::TAttribute,
-                       AttributeType::TKeepAliveData,
-                       AttributeValueType::TString,
-                       data.as_bytes().to_vec())
-    }
-
-    pub fn keepalive_time(timestamp: u32) -> Attribute {
-        let timestamp_be = timestamp.to_be();
-        let timestamp_bytes = integer_to_bytes(&timestamp_be);
-        Attribute::new("KeepAlive-Time",
-                       AttributeType::TAttribute,
-                       AttributeType::TKeepAliveTime,
-                       AttributeValueType::TInteger,
-                       timestamp_bytes.to_vec())
-    }
-
-    pub fn calc_keepalive_data(timestamp: Option<u32>, last_data: Option<&str>) -> String {
+impl KeepaliveDataCalculator {
+    pub fn calculate(timestamp: Option<u32>, last_data: Option<&str>) -> String {
         let timenow = match timestamp {
             Some(timestamp) => timestamp,
             None => current_timestamp(),
@@ -232,6 +160,165 @@ impl AttributeFactory {
     }
 }
 
+impl AttributeType {
+    pub fn name(&self) -> &'static str {
+        match *self {
+            AttributeType::TUserName => "User-Name",
+            AttributeType::TClientIPAddress => "Client-IP-Address",
+            AttributeType::TClientVersion => "Client-Version",
+            AttributeType::TClientType => "Client-Type",
+            AttributeType::TOSVersion => "OS-Version",
+            AttributeType::TOSLang => "OS-Lang",
+            AttributeType::TAdapterInfo => "Adapter-Info",
+            AttributeType::TCPUInfo => "CPU-Info",
+            AttributeType::TMACAddress => "MAC-Address",
+            AttributeType::TMemorySize => "Memory-Size",
+            AttributeType::TDefaultExplorer => "Default-Explorer",
+            AttributeType::TBubble => "Bubble",
+            AttributeType::TBubbleId => "Bubble-Id",
+            AttributeType::TBubbleTitle => "Bubble-Title",
+            AttributeType::TBubbleContext => "Bubble-Context",
+            AttributeType::TBubbleContextURL => "Bubble-Context-URL",
+            AttributeType::TBubbleKeepTime => "Bubble-Keep-Time",
+            AttributeType::TBubbleDelayTime => "Bubble-Delay-Time",
+            AttributeType::TBubbleType => "Bubble-Type",
+            AttributeType::TChannel => "Channel",
+            AttributeType::TChannelNote => "Channel-Note",
+            AttributeType::TChannelContextURL => "Channel-Context-URL",
+            AttributeType::TChannelContextURL2 => "Channel-Context-URL",
+            AttributeType::TChannelOrder => "Channel-Order",
+            AttributeType::TPlugin => "Plugin",
+            AttributeType::TPluginName => "Plugin-Name",
+            AttributeType::TPluginConfigureData => "Plugin-Configure-Data",
+            AttributeType::TUpdateVersion => "Update-Version",
+            AttributeType::TUpdateDownloadURL => "Update-Download-URL",
+            AttributeType::TUpdateDescription => "Update-Description",
+            AttributeType::TKeepAliveTime => "KeepAlive-Time",
+            AttributeType::TKeepAliveInterval => "KeepAlive-Interval",
+            AttributeType::TKeepAliveData => "KeepAlive-Data",
+            AttributeType::TProcessCheckInterval => "Process-Check-Interval",
+            AttributeType::TProcessCheckList => "Process-Check-List",
+            AttributeType::TRealTimeBubbleServer => "RealTime-Bubble-Server",
+            AttributeType::TRealTimeBubbleInterval => "RealTime-Bubble-Interval",
+            AttributeType::TWifiTransmitIPList => "Wifi-Transmit-IP-List",
+            AttributeType::TWifiShareNumber => "Wifi-Share-Number",
+            AttributeType::TWifiShareCode => "Wifi-Share-Code",
+            AttributeType::TWifiShareErrorString => "Wifi-Share-Error-String",
+            AttributeType::TWifiShareBindRequired => "Wifi-Share-Bind-Required",
+            AttributeType::TPlugin2 => "Plugin",
+            AttributeType::TDeviceSN => "Device-SN",
+            AttributeType::TDeviceType => "Device-Type",
+            AttributeType::TWifiRedirectURL => "Wifi-Redirect-URL",
+
+            _ => "",
+        }
+    }
+
+    pub fn id(&self) -> u8 {
+        match *self {
+            AttributeType::TAttribute => 0x0,
+            AttributeType::TUserName => 0x1,
+            AttributeType::TClientIPAddress => 0x2,
+            AttributeType::TClientVersion => 0x3,
+            AttributeType::TClientType => 0x4,
+            AttributeType::TOSVersion => 0x5,
+            AttributeType::TOSLang => 0x6,
+            AttributeType::TAdapterInfo => 0x7,
+            AttributeType::TCPUInfo => 0x8,
+            AttributeType::TMACAddress => 0x9,
+            AttributeType::TMemorySize => 0xa,
+            AttributeType::TDefaultExplorer => 0xb,
+            AttributeType::TBubble => 0xc,
+            AttributeType::TBubbleId => 0x1,
+            AttributeType::TBubbleTitle => 0x2,
+            AttributeType::TBubbleContext => 0x3,
+            AttributeType::TBubbleContextURL => 0x4,
+            AttributeType::TBubbleKeepTime => 0x5,
+            AttributeType::TBubbleDelayTime => 0x6,
+            AttributeType::TBubbleType => 0x7,
+            AttributeType::TChannel => 0xd,
+            AttributeType::TChannelNote => 0x1,
+            AttributeType::TChannelContextURL => 0x2,
+            AttributeType::TChannelContextURL2 => 0x3,
+            AttributeType::TChannelOrder => 0x4,
+            AttributeType::TPlugin => 0xe,
+            AttributeType::TPluginName => 0x1,
+            AttributeType::TPluginConfigureData => 0x2,
+            AttributeType::TUpdateVersion => 0xf,
+            AttributeType::TUpdateDownloadURL => 0x10,
+            AttributeType::TUpdateDescription => 0x11,
+            AttributeType::TKeepAliveTime => 0x12,
+            AttributeType::TKeepAliveInterval => 0x13,
+            AttributeType::TKeepAliveData => 0x14,
+            AttributeType::TProcessCheckInterval => 0x15,
+            AttributeType::TProcessCheckList => 0x16,
+            AttributeType::TRealTimeBubbleServer => 0x17,
+            AttributeType::TRealTimeBubbleInterval => 0x18,
+            AttributeType::TWifiTransmitIPList => 0x19,
+            AttributeType::TWifiShareNumber => 0x1a,
+            AttributeType::TWifiShareCode => 0x1b,
+            AttributeType::TWifiShareErrorString => 0x1c,
+            AttributeType::TWifiShareBindRequired => 0x1d,
+            AttributeType::TPlugin2 => 0x1e,
+            AttributeType::TDeviceSN => 0x1,
+            AttributeType::TDeviceType => 0x2,
+            AttributeType::TWifiRedirectURL => 0x1f,
+        }
+    }
+
+    pub fn parent(&self) -> Self {
+        match *self {
+            AttributeType::TBubbleId |
+            AttributeType::TBubbleTitle |
+            AttributeType::TBubbleContext |
+            AttributeType::TBubbleContextURL |
+            AttributeType::TBubbleKeepTime |
+            AttributeType::TBubbleDelayTime |
+            AttributeType::TBubbleType => AttributeType::TBubble,
+
+            AttributeType::TChannelNote |
+            AttributeType::TChannelContextURL |
+            AttributeType::TChannelContextURL2 |
+            AttributeType::TChannelOrder => AttributeType::TChannel,
+
+            AttributeType::TPluginName |
+            AttributeType::TPluginConfigureData => AttributeType::TPlugin,
+
+            AttributeType::TDeviceSN |
+            AttributeType::TDeviceType => AttributeType::TPlugin2,
+
+            _ => AttributeType::TAttribute,
+        }
+    }
+
+    pub fn value_type(&self) -> AttributeValueType {
+        match *self {
+            AttributeType::TClientIPAddress => AttributeValueType::TIPAddress,
+
+            AttributeType::TBubble |
+            AttributeType::TChannel |
+            AttributeType::TPlugin |
+            AttributeType::TPlugin2 => AttributeValueType::TGroup,
+
+            AttributeType::TMemorySize |
+            AttributeType::TBubbleId |
+            AttributeType::TBubbleKeepTime |
+            AttributeType::TBubbleDelayTime |
+            AttributeType::TBubbleType |
+            AttributeType::TChannelOrder |
+            AttributeType::TKeepAliveTime |
+            AttributeType::TKeepAliveInterval |
+            AttributeType::TProcessCheckInterval |
+            AttributeType::TRealTimeBubbleInterval |
+            AttributeType::TWifiShareNumber |
+            AttributeType::TWifiShareCode |
+            AttributeType::TWifiShareBindRequired => AttributeValueType::TInteger,
+
+            _ => AttributeValueType::TString,
+        }
+    }
+}
+
 impl AttributeVec for Vec<Attribute> {
     fn as_bytes(&self) -> Vec<u8> {
         let mut attributes_bytes: Vec<u8> = Vec::new();
@@ -246,9 +333,28 @@ impl AttributeVec for Vec<Attribute> {
     }
 }
 
+impl AttributeValue for Ipv4Addr {
+    fn as_bytes(&self) -> Vec<u8> {
+        self.octets().to_vec()
+    }
+}
+
+impl AttributeValue for String {
+    fn as_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+}
+
+impl AttributeValue for u32 {
+    fn as_bytes(&self) -> Vec<u8> {
+        let be_num = self.to_be();
+        integer_to_bytes(&be_num).to_vec()
+    }
+}
+
 #[test]
 fn test_attribute_gen_bytes() {
-    let un = AttributeFactory::username("05802278989@HYXY.XY");
+    let un = Attribute::from_type(AttributeType::TUserName, &"05802278989@HYXY.XY".to_string());
     let assert_data: &[u8] = &[1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89,
                                88, 89, 46, 88, 89];
     assert_eq!(&un.as_bytes()[..], assert_data);
@@ -256,9 +362,9 @@ fn test_attribute_gen_bytes() {
 
 #[test]
 fn test_keepalive_data() {
-    let kp_data1 = AttributeFactory::calc_keepalive_data(Some(1472483020), None);
-    let kp_data2 = AttributeFactory::calc_keepalive_data(Some(1472483020),
-                                                         Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"));
+    let kp_data1 = KeepaliveDataCalculator::calculate(Some(1472483020), None);
+    let kp_data2 = KeepaliveDataCalculator::calculate(Some(1472483020),
+                                                      Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"));
     assert_eq!(kp_data1, "ffb0b2af94693fd1ba4c93e6b9aebd3f");
     assert_eq!(kp_data2, "d0dce2b013c8adfac646a2917fdab802");
 }
