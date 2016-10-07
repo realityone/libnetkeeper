@@ -111,12 +111,8 @@ impl Configuration {
             Configuration::SichuanMac => "2023",
         }
     }
-
-    pub fn dialer(&self) -> GhcaDialer {
-        GhcaDialer::new(self.share_key(), self.prefix(), self.version())
-    }
 }
 
-pub fn load_default_dialer() -> GhcaDialer {
-    Configuration::SichuanMac.dialer()
+pub fn load_dialer(config: Configuration) -> GhcaDialer {
+    GhcaDialer::new(config.share_key(), config.prefix(), config.version())
 }

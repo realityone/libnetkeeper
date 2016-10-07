@@ -117,14 +117,8 @@ impl Configuration {
             _ => "\r\n",
         }
     }
-
-    pub fn dialer(&self) -> NetkeeperDialer {
-        match *self {
-            _ => NetkeeperDialer::new(self.share_key(), self.prefix()),
-        }
-    }
 }
 
-pub fn load_default_dialer() -> NetkeeperDialer {
-    Configuration::Zhejiang.dialer()
+pub fn load_dialer(config: Configuration) -> NetkeeperDialer {
+    NetkeeperDialer::new(config.share_key(), config.prefix())
 }

@@ -138,15 +138,12 @@ impl Configuration {
             }
         }
     }
-
-    pub fn dialer(&self) -> SingleNetDialer {
-        SingleNetDialer::new(self.share_key(), self.secret_key(), self.key_table())
-    }
 }
 
-pub fn load_default_dialer() -> SingleNetDialer {
-    Configuration::Hainan.dialer()
+pub fn load_dialer(config: Configuration) -> SingleNetDialer {
+    SingleNetDialer::new(config.share_key(), config.secret_key(), config.key_table())
 }
+
 
 #[test]
 fn test_hash_key() {

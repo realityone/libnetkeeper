@@ -14,24 +14,24 @@ mod utils;
 mod tests {
     #[test]
     fn test_netkeeper_username_encrypt() {
-        use dialer::netkeeper::load_default_dialer;
-        let dialer = load_default_dialer();
+        use dialer::netkeeper;
+        let dialer = netkeeper::load_dialer(netkeeper::Configuration::Zhejiang);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
         assert_eq!(encrypted, "\r\n:R#(P 5005802278989@HYXY.XY");
     }
 
     #[test]
     fn test_singlenet_username_encrypt() {
-        use dialer::singlenet::load_default_dialer;
-        let dialer = load_default_dialer();
+        use dialer::singlenet;
+        let dialer = singlenet::load_dialer(singlenet::Configuration::Hainan);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
         assert_eq!(encrypted, "~LL_k6ecvpj2mrjA_05802278989@HYXY.XY");
     }
 
     #[test]
     fn test_ghca_username_encrypt() {
-        use dialer::ghca::load_default_dialer;
-        let dialer = load_default_dialer();
+        use dialer::ghca;
+        let dialer = ghca::load_dialer(ghca::Configuration::SichuanMac);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY",
                              "123456",
                              Some(0x57F486F7),
