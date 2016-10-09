@@ -1,6 +1,7 @@
 pub mod netkeeper;
 pub mod singlenet;
 pub mod ghca;
+pub mod ipclient;
 
 pub trait Dialer {
     type C;
