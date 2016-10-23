@@ -1,6 +1,12 @@
+use std::str;
+use std::io;
+use std::str::FromStr;
+
 use openssl::crypto::{hash, symm};
 use linked_hash_map::LinkedHashMap;
+use byteorder::{NetworkEndian, ByteOrder};
 
+use heartbeater::reader::*;
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
@@ -37,7 +43,7 @@ pub trait ContentEncrypter {
 
     fn key_bytes(&self) -> &[u8];
     fn encrypt(&self, content_bytes: &[u8]) -> Vec<u8>;
-    // fn decrypt(&self, &[u8]) -> Packet;
+    fn decrypt(&self, content_bytes: &[u8]) -> Vec<u8>;
 }
 
 impl Frame {
@@ -55,9 +61,7 @@ impl Frame {
     pub fn add(&mut self, name: &str, value: &str) {
         self.content.insert(name.to_string(), value.to_string());
     }
-}
 
-impl Frame {
     fn as_bytes(&self, join_with: Option<&str>) -> Vec<u8> {
         let mut linked_content: Vec<String> = Vec::new();
         let join_with = match join_with {
@@ -71,6 +75,38 @@ impl Frame {
         linked_content.join(join_with).as_bytes().to_vec()
     }
 
+    fn from_bytes(bytes: &[u8], split_with: Option<&str>) -> Self {
+        let split_with = match split_with {
+            Some(split_with) => split_with,
+            None => "&",
+        };
+
+        let byte_content;
+        unsafe {
+            byte_content = str::from_utf8_unchecked(bytes);
+        }
+
+        let mut type_name = String::from("");
+        let mut frame_content: LinkedHashMap<String, String> = LinkedHashMap::new();
+        for param in byte_content.split(split_with) {
+            if !param.contains('=') {
+                continue;
+            }
+            let parts: Vec<String> = param.splitn(2, '=').map(|s| s.to_string()).collect();
+            if parts[0].to_lowercase() == "type" {
+                type_name = String::from_str(&parts[1]).unwrap();
+            } else {
+                frame_content.insert(String::from_str(&parts[0]).unwrap(),
+                                     String::from_str(&parts[1]).unwrap());
+            }
+        }
+
+        Frame {
+            type_name: type_name,
+            content: frame_content,
+        }
+    }
+
     fn len(&self) -> u32 {
         self.as_bytes(None).len() as u32
     }
@@ -78,7 +114,8 @@ impl Frame {
 
 impl Packet {
     fn magic_number() -> u16 {
-        0x5248 as u16
+        // as little endian
+        0x4852 as u16
     }
 
     pub fn new(version: u8, code: u16, frame: Frame) -> Self {
@@ -95,22 +132,64 @@ impl Packet {
     {
         let mut packet_bytes = Vec::new();
         {
+            let magic_number_be = self.magic_number.to_be();
             let version_str = self.version.to_string();
             let code_be = self.code.to_be();
             let enc_content = encrypter.encrypt(&self.frame.as_bytes(None));
             let enc_content_length_be = (enc_content.len() as u32).to_be();
 
-            let magic_number_bytes = any_to_bytes(&self.magic_number);
+            let magic_number_be_bytes = any_to_bytes(&magic_number_be);
             let code_be_bytes = any_to_bytes(&code_be);
             let enc_length_bytes = any_to_bytes(&enc_content_length_be);
 
-            packet_bytes.extend_from_slice(magic_number_bytes);
+            packet_bytes.extend_from_slice(magic_number_be_bytes);
             packet_bytes.extend(version_str.as_bytes());
             packet_bytes.extend_from_slice(code_be_bytes);
             packet_bytes.extend_from_slice(enc_length_bytes);
             packet_bytes.extend(enc_content);
         }
         packet_bytes
+    }
+
+    pub fn from_bytes<R, E>(input: &mut R,
+                            encrypter: &E,
+                            split_with: Option<&str>)
+                            -> Result<Self, ReadBytesError>
+        where E: ContentEncrypter,
+              R: io::Read
+    {
+        {
+            let magic_number_bytes = try!(read_bytes!(input, 2));
+            let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
+            if magic_number != Self::magic_number() {
+                return Err(ReadBytesError::UnexpectedBytes(magic_number_bytes));;
+            }
+        }
+
+        let version;
+        {
+            let version_bytes = try!(read_bytes!(input, 2));
+            let version_str = String::from_utf8(version_bytes).unwrap();
+            version = version_str.parse::<u8>().unwrap();
+        }
+
+        let code;
+        {
+            let code_bytes = try!(read_bytes!(input, 2));
+            code = NetworkEndian::read_u16(&code_bytes);
+        }
+
+        let content_length;
+        {
+            let content_length_bytes = try!(read_bytes!(input, 4));
+            content_length = NetworkEndian::read_i32(&content_length_bytes);
+        }
+
+        let encrypted_content = try!(read_bytes!(input, content_length as usize));
+        let plain_content = encrypter.decrypt(&encrypted_content);
+        let frame = Frame::from_bytes(&plain_content, split_with);
+
+        Ok(Self::new(version, code, frame))
     }
 }
 
@@ -183,6 +262,14 @@ impl ContentEncrypter for AES128Encrypter {
                       content_bytes)
             .unwrap()
     }
+
+    fn decrypt(&self, content_bytes: &[u8]) -> Vec<u8> {
+        symm::decrypt(symm::Type::AES_128_ECB,
+                      self.key_bytes(),
+                      None,
+                      content_bytes)
+            .unwrap()
+    }
 }
 
 #[test]
@@ -196,6 +283,19 @@ fn test_frame_concat() {
 
     assert_eq!(frame_str,
                "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000");
+    assert_eq!(frame.len(), 60);
+}
+
+#[test]
+fn test_frame_parse_from_bytes() {
+    let origin = "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000".to_string();
+    let bytes = origin.as_bytes();
+    let frame = Frame::from_bytes(bytes, None);
+
+    let frame_bytes = frame.as_bytes(None);
+    let frame_str = ::std::str::from_utf8(&frame_bytes).unwrap();
+
+    assert_eq!(frame_str, origin);
     assert_eq!(frame.len(), 60);
 }
 
