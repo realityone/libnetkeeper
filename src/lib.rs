@@ -1,4 +1,7 @@
 #![allow(dead_code)]
+#![cfg_attr(feature = "dev", feature(plugin))]
+#![cfg_attr(feature = "dev", plugin(clippy))]
+#![cfg_attr(not(feature = "dev"), allow(unknown_lints))]
 
 extern crate rustc_serialize;
 extern crate linked_hash_map;
