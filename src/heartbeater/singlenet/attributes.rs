@@ -116,15 +116,15 @@ impl Attribute {
         self.data_length() + 3
     }
 
-    pub fn as_bytes(&self) -> Box<Vec<u8>> {
-        let mut attribute_bytes: Box<Vec<u8>> = Box::new(Vec::new());
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut attribute_bytes = Vec::new();
         {
             let length_be = self.length().to_be();
             let length_bytes = integer_to_bytes(&length_be);
             let raw_attribute_id = self.attribute_id as u8;
             attribute_bytes.push(raw_attribute_id);
-            attribute_bytes.extend(length_bytes);
-            attribute_bytes.extend(self.data.iter());
+            attribute_bytes.extend_from_slice(length_bytes);
+            attribute_bytes.extend_from_slice(&self.data);
         }
         attribute_bytes
     }
@@ -325,7 +325,7 @@ impl AttributeVec for Vec<Attribute> {
     fn as_bytes(&self) -> Vec<u8> {
         let mut attributes_bytes: Vec<u8> = Vec::new();
         for attr in self {
-            attributes_bytes.extend(*attr.as_bytes());
+            attributes_bytes.extend(attr.as_bytes());
         }
         attributes_bytes
     }
