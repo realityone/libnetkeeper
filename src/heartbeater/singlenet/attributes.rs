@@ -1,3 +1,5 @@
+#![allow(match_same_arms)]
+
 use std::net::Ipv4Addr;
 
 use rustc_serialize::hex::ToHex;

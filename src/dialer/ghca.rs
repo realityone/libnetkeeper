@@ -51,10 +51,7 @@ impl GhcaDialer {
         if cursor < 1 {
             cursor += 1;
         }
-        let match_flag = match cursor == pwd_len {
-            true => 1,
-            false => 0,
-        };
+        let match_flag = if cursor == pwd_len { 1 } else { 0 };
 
         let delta = cursor - match_flag;
         let md5_hash_prefix;
@@ -69,10 +66,10 @@ impl GhcaDialer {
             let sec_timestamp_bytes = integer_to_bytes(&sec_timestamp_be);
 
             md5.update(sec_timestamp_bytes).unwrap();
-            md5.update(&self.share_key[..(60 - prefix_len) as usize].as_bytes()).unwrap();
+            md5.update(self.share_key[..(60 - prefix_len) as usize].as_bytes()).unwrap();
             md5.update(pwd_prefix.as_bytes()).unwrap();
             md5.update(username.as_bytes()).unwrap();
-            md5.update(&self.share_key[..(64 - name_len - suffix_len) as usize].as_bytes())
+            md5.update(self.share_key[..(64 - name_len - suffix_len) as usize].as_bytes())
                 .unwrap();
             md5.update(pwd_suffix.as_bytes()).unwrap();
 

@@ -38,9 +38,9 @@ impl SingleNetDialer {
             let timenow_bytes = integer_to_bytes(&timenow_be);
 
             let mut hash_data: Vec<u8> = Vec::new();
-            hash_data.extend(timenow_bytes);
+            hash_data.extend_from_slice(timenow_bytes);
             hash_data.extend(self.share_key.as_bytes());
-            hash_data.extend(username.split("@").nth(0).unwrap().as_bytes());
+            hash_data.extend(username.split('@').nth(0).unwrap().as_bytes());
             first_hash = Self::calc_hash(&hash_data)
         }
 
@@ -50,7 +50,7 @@ impl SingleNetDialer {
             let first_hash_bytes = integer_to_bytes(&first_hash_be);
 
             let mut hash_data: Vec<u8> = Vec::new();
-            hash_data.extend(first_hash_bytes);
+            hash_data.extend_from_slice(first_hash_bytes);
             hash_data.extend(self.secret_key.as_bytes());
             second_hash = Self::calc_hash(&hash_data);
         }
@@ -67,10 +67,10 @@ impl SingleNetDialer {
             let first_hash_bytes = integer_to_bytes(&first_hash);
             let second_hash_bytes = integer_to_bytes(&second_hash);
 
-            scheduled_table.extend(timenow_high_bytes);
-            scheduled_table.extend(first_hash_bytes);
-            scheduled_table.extend(timenow_low_bytes);
-            scheduled_table.extend(second_hash_bytes);
+            scheduled_table.extend_from_slice(timenow_high_bytes);
+            scheduled_table.extend_from_slice(first_hash_bytes);
+            scheduled_table.extend_from_slice(timenow_low_bytes);
+            scheduled_table.extend_from_slice(second_hash_bytes);
         }
 
         let mut vectors: [u8; 12] = [0; 12];

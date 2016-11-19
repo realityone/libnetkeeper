@@ -115,8 +115,7 @@ impl PacketFactoryWin {
         };
 
         let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
-        let seq = ((tmp_num >> 0x10) & 0xff) as u8;
-        seq
+        ((tmp_num >> 0x10) & 0xff) as u8
     }
 
     pub fn keepalive_request(username: &str,
