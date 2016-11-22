@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
 
-use utils::{current_timestamp, integer_to_bytes};
+use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
@@ -118,7 +118,7 @@ impl Attribute {
         let mut attribute_bytes: Box<Vec<u8>> = Box::new(Vec::new());
         {
             let length_be = self.length().to_be();
-            let length_bytes = integer_to_bytes(&length_be);
+            let length_bytes = any_to_bytes(&length_be);
             let raw_attribute_id = self.attribute_id as u8;
             attribute_bytes.push(raw_attribute_id);
             attribute_bytes.extend(length_bytes);
@@ -148,7 +148,7 @@ impl KeepaliveDataCalculator {
         {
             let mut md5 = Hasher::new(Type::MD5).unwrap();
             let timenow_be = timenow.to_be();
-            let timenow_bytes = integer_to_bytes(&timenow_be);
+            let timenow_bytes = any_to_bytes(&timenow_be);
 
             md5.update(timenow_bytes).unwrap();
             md5.update(salt.as_bytes()).unwrap();
@@ -348,7 +348,7 @@ impl AttributeValue for String {
 impl AttributeValue for u32 {
     fn as_bytes(&self) -> Vec<u8> {
         let be_num = self.to_be();
-        integer_to_bytes(&be_num).to_vec()
+        any_to_bytes(&be_num).to_vec()
     }
 }
 

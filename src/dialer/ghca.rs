@@ -4,7 +4,7 @@ use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
 
 use dialer::Dialer;
-use utils::{current_timestamp, integer_to_bytes};
+use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
 pub enum Configuration {
@@ -66,7 +66,7 @@ impl GhcaDialer {
             let pwd_prefix = &password[..prefix_len as usize];
             let pwd_suffix = &password[prefix_len as usize..pwd_len as usize];
             let sec_timestamp_be = sec_timestamp.to_be();
-            let sec_timestamp_bytes = integer_to_bytes(&sec_timestamp_be);
+            let sec_timestamp_bytes = any_to_bytes(&sec_timestamp_be);
 
             md5.update(sec_timestamp_bytes).unwrap();
             md5.update(&self.share_key[..(60 - prefix_len) as usize].as_bytes()).unwrap();

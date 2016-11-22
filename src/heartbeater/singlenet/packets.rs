@@ -4,7 +4,7 @@ use openssl::crypto::hash::{Hasher, Type};
 
 use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
                                          KeepaliveDataCalculator};
-use utils::{current_timestamp, integer_to_bytes};
+use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug, Copy, Clone)]
 pub enum PacketCode {
@@ -89,8 +89,8 @@ impl Packet {
             let magic_number_be = self.magic_number.to_be();
             let length_be = self.length.to_be();
 
-            let magic_number_bytes = integer_to_bytes(&magic_number_be);
-            let length_bytes = integer_to_bytes(&length_be);
+            let magic_number_bytes = any_to_bytes(&magic_number_be);
+            let length_bytes = any_to_bytes(&length_be);
             let attributes_bytes = self.attributes.as_bytes();
             let raw_packet_code = self.code as u8;
 

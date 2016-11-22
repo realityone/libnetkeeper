@@ -2,7 +2,7 @@ use std::str;
 use std::slice;
 
 use dialer::Dialer;
-use utils::{current_timestamp, integer_to_bytes};
+use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
 pub enum Configuration {
@@ -35,7 +35,7 @@ impl SingleNetDialer {
         let first_hash: u16;
         {
             let timenow_be = timenow.to_be();
-            let timenow_bytes = integer_to_bytes(&timenow_be);
+            let timenow_bytes = any_to_bytes(&timenow_be);
 
             let mut hash_data: Vec<u8> = Vec::new();
             hash_data.extend(timenow_bytes);
@@ -47,7 +47,7 @@ impl SingleNetDialer {
         let second_hash: u16;
         {
             let first_hash_be = first_hash.to_be();
-            let first_hash_bytes = integer_to_bytes(&first_hash_be);
+            let first_hash_bytes = any_to_bytes(&first_hash_be);
 
             let mut hash_data: Vec<u8> = Vec::new();
             hash_data.extend(first_hash_bytes);
@@ -62,10 +62,10 @@ impl SingleNetDialer {
             let timenow_high_be = timenow_high.to_be();
             let timenow_low_be = timenow_low.to_be();
 
-            let timenow_high_bytes = integer_to_bytes(&timenow_high_be);
-            let timenow_low_bytes = integer_to_bytes(&timenow_low_be);
-            let first_hash_bytes = integer_to_bytes(&first_hash);
-            let second_hash_bytes = integer_to_bytes(&second_hash);
+            let timenow_high_bytes = any_to_bytes(&timenow_high_be);
+            let timenow_low_bytes = any_to_bytes(&timenow_low_be);
+            let first_hash_bytes = any_to_bytes(&first_hash);
+            let second_hash_bytes = any_to_bytes(&second_hash);
 
             scheduled_table.extend(timenow_high_bytes);
             scheduled_table.extend(first_hash_bytes);
