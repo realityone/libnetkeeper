@@ -12,7 +12,7 @@ num = "0.1.35"
 openssl = "0.8.2"
 rustc-serialize = "0.3.19"
 time = "0.1.35"
-clippy = {version = "0.0.95", optional = true}
+clippy = {version = "*", optional = true}
 
 [lib]
 name = "netkeeper"
