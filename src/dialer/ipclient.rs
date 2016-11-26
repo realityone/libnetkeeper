@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
 
-use utils::integer_to_bytes;
+use utils::any_to_bytes;
 
 // copy from https://github.com/xuzhipengnt/ipclient_gxnu
 const USERNAME_MAX_LEN: usize = 30;
@@ -64,7 +64,7 @@ impl MACOpenPacket {
                 .clone_from_slice(self.mac_address.as_bytes());
 
             let isp_be = (self.isp as u32).to_be();
-            let isp_bytes = integer_to_bytes(&isp_be);
+            let isp_bytes = any_to_bytes(&isp_be);
 
             macopen_packet.extend_from_slice(&username_bytes);
             macopen_packet.extend_from_slice(&self.ipaddress.octets());
@@ -96,7 +96,7 @@ impl MACOpenPacket {
         hash &= Wrapping(0x7fffffff);
 
         let mut hash_bytes = [0; 4];
-        hash_bytes.clone_from_slice(integer_to_bytes(&hash.0));
+        hash_bytes.clone_from_slice(any_to_bytes(&hash.0));
         hash_bytes
     }
 }

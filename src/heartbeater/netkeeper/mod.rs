@@ -1,7 +1,7 @@
 use openssl::crypto::{hash, symm};
 use linked_hash_map::LinkedHashMap;
 
-use utils::{current_timestamp, integer_to_bytes};
+use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
 pub struct Frame {
@@ -100,9 +100,9 @@ impl Packet {
             let enc_content = encrypter.encrypt(&self.frame.as_bytes(None));
             let enc_content_length_be = (enc_content.len() as u32).to_be();
 
-            let magic_number_bytes = integer_to_bytes(&self.magic_number);
-            let code_be_bytes = integer_to_bytes(&code_be);
-            let enc_length_bytes = integer_to_bytes(&enc_content_length_be);
+            let magic_number_bytes = any_to_bytes(&self.magic_number);
+            let code_be_bytes = any_to_bytes(&code_be);
+            let enc_length_bytes = any_to_bytes(&enc_content_length_be);
 
             packet_bytes.extend_from_slice(magic_number_bytes);
             packet_bytes.extend(version_str.as_bytes());
