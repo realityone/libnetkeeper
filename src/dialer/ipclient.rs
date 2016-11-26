@@ -63,7 +63,7 @@ impl MACOpenPacket {
             mac_address_bytes[..self.mac_address.len()]
                 .clone_from_slice(self.mac_address.as_bytes());
 
-            let isp_be = (self.isp.clone() as u32).to_be();
+            let isp_be = (self.isp as u32).to_be();
             let isp_bytes = integer_to_bytes(&isp_be);
 
             macopen_packet.extend(&username_bytes);
