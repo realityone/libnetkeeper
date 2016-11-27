@@ -3,15 +3,19 @@ authors = ["realityone <realityone@me.com>"]
 name = "libnetkeeper"
 version = "0.1.0"
 
-[features]
-dev = ["clippy"]
-
 [dependencies]
+byteorder = "0.5.3"
 linked-hash-map = "0.3.0"
 openssl = "0.8.2"
 rustc-serialize = "0.3.19"
 time = "0.1.35"
-clippy = {version = "*", optional = true}
+
+[dependencies.clippy]
+optional = true
+version = "*"
+
+[features]
+dev = ["clippy"]
 
 [lib]
 name = "netkeeper"
