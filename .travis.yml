@@ -1,0 +1,16 @@
+language: rust
+
+rust:
+  - stable
+  - nightly
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y openssl
+
+matrix:
+  include:
+  - rust: "nightly"
+    script:
+      - cargo install clippy --verbose
+      - cargo clippy -- -D clippy
