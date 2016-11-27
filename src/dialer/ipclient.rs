@@ -52,10 +52,10 @@ impl MACOpenPacket {
         }
     }
 
-    pub fn as_bytes(&self, hash_key: u32) -> Result<Box<Vec<u8>>, MACOpenErr> {
+    pub fn as_bytes(&self, hash_key: u32) -> Result<Vec<u8>, MACOpenErr> {
         try!(self.validate());
 
-        let mut macopen_packet: Box<Vec<u8>> = Box::new(Vec::with_capacity(60));
+        let mut macopen_packet = Vec::with_capacity(60);
         {
             let mut username_bytes = [0; USERNAME_MAX_LEN];
             let mut mac_address_bytes = [0; MAC_ADDRESS_LEN];
@@ -63,16 +63,16 @@ impl MACOpenPacket {
             mac_address_bytes[..self.mac_address.len()]
                 .clone_from_slice(self.mac_address.as_bytes());
 
-            let isp_be = (self.isp.clone() as u32).to_be();
+            let isp_be = (self.isp as u32).to_be();
             let isp_bytes = any_to_bytes(&isp_be);
 
-            macopen_packet.extend(&username_bytes);
-            macopen_packet.extend(&self.ipaddress.octets());
-            macopen_packet.extend(&mac_address_bytes);
-            macopen_packet.extend(isp_bytes);
+            macopen_packet.extend_from_slice(&username_bytes);
+            macopen_packet.extend_from_slice(&self.ipaddress.octets());
+            macopen_packet.extend_from_slice(&mac_address_bytes);
+            macopen_packet.extend_from_slice(isp_bytes);
 
             let hash_bytes = Self::hash_bytes(&macopen_packet, hash_key);
-            macopen_packet.extend(&hash_bytes);
+            macopen_packet.extend_from_slice(&hash_bytes);
         }
 
         Ok(macopen_packet)

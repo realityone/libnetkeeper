@@ -49,11 +49,9 @@ impl NetkeeperDialer {
         let pin27_str;
         {
             let mut time_hash: [u8; 4] = [0; 4];
-            for i in 0..4 {
+            for (i, code) in time_hash.iter_mut().enumerate() {
                 for j in 0..8 {
-                    time_hash[i] = time_hash[i] +
-                                   ((((time_div_by_five >> (i + 4 * j)) & 1) << (7 - j)) &
-                                    0xFF) as u8;
+                    *code += ((((time_div_by_five >> (i + 4 * j)) & 1) << (7 - j)) & 0xFF) as u8;
                 }
             }
 
@@ -64,10 +62,10 @@ impl NetkeeperDialer {
             pin27_byte[4] = (time_hash[3] >> 2) & 0x3F;
             pin27_byte[5] = (time_hash[3] & 0x03) << 4;
 
-            for i in 0..6 {
-                pin27_byte[i] = pin27_byte[i] + 0x20;
-                if pin27_byte[i] > 0x40 {
-                    pin27_byte[i] += 1;
+            for byte in pin27_byte.iter_mut().take(6) {
+                *byte += 0x20;
+                if *byte > 0x40 {
+                    *byte += 1;
                 }
             }
 
@@ -84,7 +82,7 @@ impl NetkeeperDialer {
             let tdbf_bytes = any_to_bytes(&time_div_by_five_be);
 
             md5.update(tdbf_bytes).unwrap();
-            md5.update(username.split("@").nth(0).unwrap().as_bytes()).unwrap();
+            md5.update(username.split('@').nth(0).unwrap().as_bytes()).unwrap();
             md5.update(self.share_key.as_bytes()).unwrap();
 
             let hashed_bytes = md5.finish().unwrap();

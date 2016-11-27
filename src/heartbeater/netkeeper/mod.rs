@@ -28,7 +28,7 @@ pub trait ContentEncrypter {
     fn pad(content_bytes: &[u8], length: usize) -> Vec<u8> {
         let pad_size = (length - content_bytes.len() % length) % length;
         let mut result: Vec<u8> = Vec::new();
-        result.extend(content_bytes);
+        result.extend_from_slice(content_bytes);
         for _ in 0..pad_size {
             result.push(pad_size as u8);
         }
@@ -104,10 +104,10 @@ impl Packet {
             let code_be_bytes = any_to_bytes(&code_be);
             let enc_length_bytes = any_to_bytes(&enc_content_length_be);
 
-            packet_bytes.extend(magic_number_bytes);
+            packet_bytes.extend_from_slice(magic_number_bytes);
             packet_bytes.extend(version_str.as_bytes());
-            packet_bytes.extend(code_be_bytes);
-            packet_bytes.extend(enc_length_bytes);
+            packet_bytes.extend_from_slice(code_be_bytes);
+            packet_bytes.extend_from_slice(enc_length_bytes);
             packet_bytes.extend(enc_content);
         }
         packet_bytes
@@ -209,7 +209,7 @@ fn test_calc_heartbeat_pin() {
 fn test_aes_128_ecb_encrypt() {
     let aes = AES128Encrypter::new("xlzjhrprotocol3x").unwrap();
     let plain_text = "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000";
-    let encrypted = aes.encrypt(&plain_text.as_bytes());
+    let encrypted = aes.encrypt(plain_text.as_bytes());
     let real_data = vec![66, 100, 164, 73, 167, 41, 222, 211, 188, 8, 14, 110, 252, 246, 121, 119,
                          79, 18, 254, 193, 72, 163, 54, 136, 248, 60, 221, 177, 221, 0, 13, 10,
                          146, 141, 142, 244, 89, 10, 176, 106, 162, 242, 204, 38, 73, 34, 55, 137,
