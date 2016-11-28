@@ -1,13 +1,13 @@
-use std::str;
 use std::io;
+use std::str;
 use std::str::FromStr;
 
 use openssl::crypto::{hash, symm};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
-use heartbeater::reader::{ReadBytesError, ReaderHelper};
 use utils::{current_timestamp, any_to_bytes};
+use heartbeater::reader::{ReadBytesError, ReaderHelper};
 
 #[derive(Debug)]
 pub struct Frame {
