@@ -1,4 +1,3 @@
-#[macro_use]
 mod reader;
 
 pub mod singlenet;

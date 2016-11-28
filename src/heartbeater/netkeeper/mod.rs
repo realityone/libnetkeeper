@@ -6,7 +6,7 @@ use openssl::crypto::{hash, symm};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
-use heartbeater::reader::*;
+use heartbeater::reader::{ReadBytesError, ReaderHelper};
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
@@ -151,7 +151,7 @@ impl Packet {
         packet_bytes
     }
 
-    pub fn from_bytes<R, E>(input: &mut R,
+    pub fn from_bytes<R, E>(input: &mut io::BufReader<R>,
                             encrypter: &E,
                             split_with: Option<&str>)
                             -> Result<Self, ReadBytesError>
@@ -159,7 +159,7 @@ impl Packet {
               R: io::Read
     {
         {
-            let magic_number_bytes = try!(read_bytes!(input, 2));
+            let magic_number_bytes = try!(input.read_bytes(2));
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
                 return Err(ReadBytesError::UnexpectedBytes(magic_number_bytes));;
@@ -168,24 +168,24 @@ impl Packet {
 
         let version;
         {
-            let version_bytes = try!(read_bytes!(input, 2));
+            let version_bytes = try!(input.read_bytes(2));
             let version_str = String::from_utf8(version_bytes).unwrap();
             version = version_str.parse::<u8>().unwrap();
         }
 
         let code;
         {
-            let code_bytes = try!(read_bytes!(input, 2));
+            let code_bytes = try!(input.read_bytes(2));
             code = NetworkEndian::read_u16(&code_bytes);
         }
 
         let content_length;
         {
-            let content_length_bytes = try!(read_bytes!(input, 4));
+            let content_length_bytes = try!(input.read_bytes(4));
             content_length = NetworkEndian::read_i32(&content_length_bytes);
         }
 
-        let encrypted_content = try!(read_bytes!(input, content_length as usize));
+        let encrypted_content = try!(input.read_bytes(content_length as usize));
         let plain_content = encrypter.decrypt(&encrypted_content);
         let frame = Frame::from_bytes(&plain_content, split_with);
 
