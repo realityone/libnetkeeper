@@ -115,7 +115,7 @@ impl Frame {
 impl Packet {
     fn magic_number() -> u16 {
         // as little endian
-        0x4852 as u16
+        0x4852u16
     }
 
     pub fn new(version: u8, code: u16, frame: Frame) -> Self {

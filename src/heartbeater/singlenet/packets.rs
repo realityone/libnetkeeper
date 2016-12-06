@@ -38,12 +38,6 @@ pub struct PacketAuthenticator {
 pub struct PacketFactoryMac;
 pub struct PacketFactoryWin;
 
-// len(magic_number) + len(length) + len(code) + len(seq) + \
-// len(authenticator)
-// 2 + 2 + 1 + 1 + 16
-const HEADER_LENGTH: u16 = 22;
-const MAGIC_NUMBE: u16 = 0x534e;
-
 impl PacketAuthenticator {
     pub fn new(salt: &str) -> Self {
         PacketAuthenticator { salt: salt.to_string() }
@@ -62,9 +56,20 @@ impl PacketAuthenticator {
 }
 
 impl Packet {
+    fn magic_number() -> u16 {
+        0x534eu16
+    }
+
+    fn header_length() -> u16 {
+        // len(magic_number) + len(length) + len(code) + len(seq) + \
+        // len(authenticator)
+        // 2 + 2 + 1 + 1 + 16
+        22u16
+    }
+
     pub fn new(code: PacketCode, seq: u8, attributes: Vec<Attribute>) -> Self {
         let mut packet = Packet {
-            magic_number: MAGIC_NUMBE,
+            magic_number: Self::magic_number(),
             length: 0,
             code: code,
             seq: seq,
@@ -75,7 +80,7 @@ impl Packet {
     }
 
     pub fn calc_length(packet: &Self) -> u16 {
-        HEADER_LENGTH + packet.attributes.length()
+        Self::header_length() + packet.attributes.length()
     }
 
     pub fn as_bytes(&self, authenticator: Option<&PacketAuthenticator>) -> Vec<u8> {
@@ -150,7 +155,7 @@ impl PacketFactoryWin {
 
 impl PacketFactoryMac {
     fn calc_seq() -> u8 {
-        0x1 as u8
+        0x1u8
     }
 
     fn client_type() -> String {
@@ -252,7 +257,7 @@ impl PacketFactoryMac {
 #[test]
 fn test_calc_seq() {
     let seq = PacketFactoryWin::calc_seq(Some(1472483020));
-    assert_eq!(seq, 43 as u8);
+    assert_eq!(seq, 43u8);
 }
 
 #[test]
