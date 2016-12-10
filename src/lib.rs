@@ -145,10 +145,11 @@ mod tests {
     }
 
     #[test]
-    fn test_keepalive_request() {
+    fn test_keepalive_request_generate_and_parse() {
+        use std::io::BufReader;
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{PacketFactoryWin, PacketAuthenticator};
+        use heartbeater::singlenet::packets::{PacketFactoryWin, PacketAuthenticator, Packet};
 
         let ka1 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
                                                       Ipv4Addr::from_str("10.0.0.1").unwrap(),
@@ -180,6 +181,11 @@ mod tests {
                  89, 88, 89, 46, 88, 89];
         assert_eq!(ka1_bytes, real1_bytes);
         assert_eq!(ka2_bytes, real2_bytes);
+
+        let mut buffer = BufReader::new(&real1_bytes as &[u8]);
+        let ka1_p1 = Packet::from_bytes(&mut buffer).unwrap();
+        let ka1_p1_bytes = ka1_p1.as_bytes(None);
+        assert_eq!(ka1_p1_bytes, real1_bytes);
     }
 
     #[test]
