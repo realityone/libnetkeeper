@@ -1,9 +1,12 @@
+use std::io;
 use std::net::Ipv4Addr;
 
 use openssl::crypto::hash::{Hasher, Type};
+use byteorder::{NetworkEndian, ByteOrder};
 
 use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
                                          KeepaliveDataCalculator};
+use heartbeater::reader::{ReadBytesError, ReaderHelper};
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug, Copy, Clone)]
@@ -107,6 +110,56 @@ impl Packet {
             bytes.extend(attributes_bytes);
         }
         bytes
+    }
+
+    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> Result<Self, ReadBytesError>
+        where R: io::Read
+    {
+        {
+            let magic_number_bytes = try!(input.read_bytes(2));
+            let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
+            if magic_number != Self::magic_number() {
+                return Err(ReadBytesError::UnexpectedBytes(magic_number_bytes));;
+            }
+        }
+
+        let length;
+        {
+            let length_bytes = try!(input.read_bytes(2));
+            length = NetworkEndian::read_u16(&length_bytes);
+        }
+
+        let code;
+        {
+            let code_bytes = try!(input.read_bytes(1));
+            let code_u8 = code_bytes[0];
+            match PacketCode::from_u8(code_u8) {
+                Some(packet_code) => code = packet_code,
+                None => return Err(ReadBytesError::UnexpectedBytes(code_bytes)),
+            }
+        }
+
+        let seq;
+        {
+            seq = try!(input.read_bytes(1))[0];
+        }
+
+        // let authorization;
+        {
+            try!(input.read_bytes(16));
+        }
+
+        let attributes;
+        {
+            let attributes_bytes =
+                try!(input.read_bytes((length - Self::header_length()) as usize));
+            match Vec::<Attribute>::from_bytes(&attributes_bytes) {
+                Ok(attributes_result) => attributes = attributes_result,
+                Err(_) => return Err(ReadBytesError::UnexpectedBytes(attributes_bytes)),
+            }
+        }
+
+        Ok(Packet::new(code, seq, attributes))
     }
 }
 
@@ -251,6 +304,27 @@ impl PacketFactoryMac {
         Packet::new(PacketCode::CRealTimeBubbleRequest,
                     Self::calc_seq(),
                     attributes)
+    }
+}
+
+impl PacketCode {
+    fn from_u8(code: u8) -> Option<Self> {
+        match code {
+            0x1 => Some(PacketCode::CRegisterRequest),
+            0x2 => Some(PacketCode::CRegisterResponse),
+            0x3 => Some(PacketCode::CKeepAliveRequest),
+            0x4 => Some(PacketCode::CKeepAliveResponse),
+            0x5 => Some(PacketCode::CBubbleRequest),
+            0x6 => Some(PacketCode::CBubbleResponse),
+            0x7 => Some(PacketCode::CChannelRequest),
+            0x8 => Some(PacketCode::CChannelResponse),
+            0x9 => Some(PacketCode::CPluginRequest),
+            0xa => Some(PacketCode::CPluginResponse),
+            0xb => Some(PacketCode::CRealTimeBubbleRequest),
+            0xc => Some(PacketCode::CRealTimeBubbleResponse),
+
+            _ => None,
+        }
     }
 }
 

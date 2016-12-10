@@ -1,11 +1,18 @@
 #![allow(match_same_arms)]
-
+use std::str;
 use std::net::Ipv4Addr;
 
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
+use byteorder::{NetworkEndian, ByteOrder};
 
 use utils::{current_timestamp, any_to_bytes};
+
+#[derive(Debug)]
+pub enum ParseAttributeErr {
+    // Expect length {}, got {}
+    UnexpectDataLength(usize, usize),
+}
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
@@ -84,6 +91,8 @@ pub trait AttributeValue {
 pub trait AttributeVec {
     fn as_bytes(&self) -> Vec<u8>;
     fn length(&self) -> u16;
+
+    fn from_bytes(bytes: &[u8]) -> Result<Vec<Attribute>, ParseAttributeErr>;
 }
 
 impl Attribute {
@@ -112,8 +121,12 @@ impl Attribute {
                   value.as_bytes().to_vec())
     }
 
+    fn header_length() -> u16 {
+        3u16
+    }
+
     pub fn length(&self) -> u16 {
-        self.data_length() + 3
+        self.data_length() + Self::header_length()
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -333,6 +346,36 @@ impl AttributeVec for Vec<Attribute> {
     fn length(&self) -> u16 {
         self.iter().fold(0, |sum, attr| sum + attr.length()) as u16
     }
+
+    /// Now only support parse from `AttributeType::TAttribute`'s attributes,
+    /// `parent_id` and `value_type_id` will be missed.
+    fn from_bytes(bytes: &[u8]) -> Result<Vec<Attribute>, ParseAttributeErr> {
+        let mut index = 0;
+        let mut attributes: Vec<Attribute> = Vec::new();
+        let header_length = Attribute::header_length() as usize;
+        loop {
+            let cursor = &bytes[index..];
+            let bytes_length = cursor.len() as usize;
+            if bytes_length == 0 {
+                return Ok(attributes);
+            }
+            if bytes_length < header_length {
+                return Err(ParseAttributeErr::UnexpectDataLength(header_length, bytes_length));
+            }
+            let attribute_id = cursor[0];
+
+            let data_length = NetworkEndian::read_u16(&cursor[1..header_length]) as usize;
+            index += data_length;
+
+            if data_length > bytes_length {
+                return Err(ParseAttributeErr::UnexpectDataLength(data_length, bytes_length));
+            }
+
+            let mut data: Vec<u8> = Vec::new();
+            data.extend_from_slice(&cursor[header_length..data_length]);
+            attributes.push(Attribute::new("", 0u8, attribute_id, 0u8, data))
+        }
+    }
 }
 
 impl AttributeValue for Ipv4Addr {
@@ -360,6 +403,17 @@ fn test_attribute_gen_bytes() {
     let assert_data: &[u8] = &[1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89,
                                88, 89, 46, 88, 89];
     assert_eq!(&un.as_bytes()[..], assert_data);
+}
+
+#[test]
+fn test_attributes_parse_bytes() {
+    let assert_data: &[u8] = &[2, 0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54,
+                               20, 0, 35, 102, 102, 98, 48, 98, 50, 97, 102, 57, 52, 54, 57, 51,
+                               102, 100, 49, 98, 97, 52, 99, 57, 51, 101, 54, 98, 57, 97, 101, 98,
+                               100, 51, 102, 18, 0, 7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48,
+                               50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89];
+    let attributes: Vec<Attribute> = Vec::<Attribute>::from_bytes(assert_data).unwrap();
+    assert_eq!(attributes.as_bytes(), assert_data);
 }
 
 #[test]
