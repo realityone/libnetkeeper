@@ -31,6 +31,7 @@ pub struct Packet {
     length: u16,
     code: PacketCode,
     seq: u8,
+    authorization: [u8; 16],
     attributes: Vec<Attribute>,
 }
 
@@ -70,12 +71,21 @@ impl Packet {
         22u16
     }
 
-    pub fn new(code: PacketCode, seq: u8, attributes: Vec<Attribute>) -> Self {
+    pub fn new(code: PacketCode,
+               seq: u8,
+               authorization: Option<[u8; 16]>,
+               attributes: Vec<Attribute>)
+               -> Self {
+        let authorization = match authorization {
+            Some(authorization) => authorization,
+            None => [0u8; 16],
+        };
         let mut packet = Packet {
             magic_number: Self::magic_number(),
             length: 0,
             code: code,
             seq: seq,
+            authorization: authorization,
             attributes: attributes,
         };
         packet.length = Self::calc_length(&packet);
@@ -90,7 +100,7 @@ impl Packet {
         let mut bytes = Vec::new();
         let authorization = match authenticator {
             Some(authenticator) => authenticator.authenticate(&self.as_bytes(None)),
-            None => [0; 16],
+            None => self.authorization,
         };
 
         {
@@ -144,9 +154,10 @@ impl Packet {
             seq = try!(input.read_bytes(1))[0];
         }
 
-        // let authorization;
+        let mut authorization = [0u8; 16];
         {
-            try!(input.read_bytes(16));
+            let authorization_bytes = try!(input.read_bytes(16));
+            authorization.copy_from_slice(&authorization_bytes);
         }
 
         let attributes;
@@ -159,7 +170,7 @@ impl Packet {
             }
         }
 
-        Ok(Packet::new(code, seq, attributes))
+        Ok(Packet::new(code, seq, Some(authorization), attributes))
     }
 }
 
@@ -202,6 +213,7 @@ impl PacketFactoryWin {
 
         Packet::new(PacketCode::CKeepAliveRequest,
                     Self::calc_seq(timestamp),
+                    None,
                     attributes)
     }
 }
@@ -251,7 +263,10 @@ impl PacketFactoryMac {
                  Attribute::from_type(AttributeType::TOSVersion, &os_version.to_string()),
                  Attribute::from_type(AttributeType::TOSLang, &os_language.to_string())];
 
-        Packet::new(PacketCode::CRegisterRequest, Self::calc_seq(), attributes)
+        Packet::new(PacketCode::CRegisterRequest,
+                    Self::calc_seq(),
+                    None,
+                    attributes)
     }
 
     pub fn bubble_request(username: &str,
@@ -276,7 +291,10 @@ impl PacketFactoryMac {
                  Attribute::from_type(AttributeType::TClientIPAddress, &ipaddress),
                  Attribute::from_type(AttributeType::TMACAddress, &mac_address.to_string())];
 
-        Packet::new(PacketCode::CBubbleRequest, Self::calc_seq(), attributes)
+        Packet::new(PacketCode::CBubbleRequest,
+                    Self::calc_seq(),
+                    None,
+                    attributes)
     }
 
     pub fn real_time_bubble_request(username: &str,
@@ -303,6 +321,7 @@ impl PacketFactoryMac {
 
         Packet::new(PacketCode::CRealTimeBubbleRequest,
                     Self::calc_seq(),
+                    None,
                     attributes)
     }
 }

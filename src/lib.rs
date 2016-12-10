@@ -184,7 +184,7 @@ mod tests {
 
         let mut buffer = BufReader::new(&real1_bytes as &[u8]);
         let ka1_p1 = Packet::from_bytes(&mut buffer).unwrap();
-        let ka1_p1_bytes = ka1_p1.as_bytes(Some(&authenticator));
+        let ka1_p1_bytes = ka1_p1.as_bytes(None);
         assert_eq!(ka1_p1_bytes, real1_bytes);
     }
 
