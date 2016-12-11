@@ -1,5 +1,3 @@
-use std::str;
-
 use rustc_serialize::hex::ToHex;
 use openssl::crypto::hash::{Hasher, Type};
 
