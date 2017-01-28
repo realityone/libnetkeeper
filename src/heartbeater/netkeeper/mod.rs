@@ -3,7 +3,7 @@ use std::str;
 use std::str::FromStr;
 
 use crypto::cipher::{AES_128_ECB, SimpleCipher};
-use crypto::hash::{HasherBuilder, HasherTypes};
+use crypto::hash::{HasherBuilder, HasherType};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
@@ -205,7 +205,7 @@ impl PacketUtils {
         let timestamp_hex = format!("{:08x}", timestamp);
         let timestamp_hex_chars: Vec<char> = timestamp_hex.chars().collect();
         {
-            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
+            let mut md5 = HasherBuilder::build(HasherType::MD5);
             let salt = salts[(timestamp % 3) as usize];
 
             md5.update(timestamp_hex.as_bytes());
