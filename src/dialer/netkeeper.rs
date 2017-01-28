@@ -1,7 +1,7 @@
 use std::str;
 
 use rustc_serialize::hex::ToHex;
-use crypto::hash::{HasherBuilder, HasherTypes};
+use crypto::hash::{HasherBuilder, HasherType};
 
 use dialer::Dialer;
 use utils::{current_timestamp, any_to_bytes};
@@ -76,7 +76,7 @@ impl NetkeeperDialer {
 
         let pin89_str;
         {
-            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
+            let mut md5 = HasherBuilder::build(HasherType::MD5);
 
             let time_div_by_five_be = time_div_by_five.to_be();
             let tdbf_bytes = any_to_bytes(&time_div_by_five_be);

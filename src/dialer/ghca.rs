@@ -1,5 +1,5 @@
 use rustc_serialize::hex::ToHex;
-use crypto::hash::{HasherBuilder, HasherTypes};
+use crypto::hash::{HasherBuilder, HasherType};
 
 use dialer::Dialer;
 use utils::{current_timestamp, any_to_bytes};
@@ -58,7 +58,7 @@ impl GhcaDialer {
         let delta = cursor - match_flag;
         let md5_hash_prefix;
         {
-            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
+            let mut md5 = HasherBuilder::build(HasherType::MD5);
 
             let prefix_len = delta + 1;
             let suffix_len = pwd_len - prefix_len;
@@ -75,7 +75,7 @@ impl GhcaDialer {
             md5.update(pwd_suffix.as_bytes());
 
             let first_hashed_bytes = md5.finish();
-            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
+            let mut md5 = HasherBuilder::build(HasherType::MD5);
             md5.update(&first_hashed_bytes);
             md5_hash_prefix = md5.finish()[..8].to_hex().to_uppercase();
         }

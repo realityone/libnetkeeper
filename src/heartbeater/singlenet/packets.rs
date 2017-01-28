@@ -1,7 +1,7 @@
 use std::io;
 use std::net::Ipv4Addr;
 
-use crypto::hash::{HasherBuilder, HasherTypes};
+use crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{NetworkEndian, ByteOrder};
 
 use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
@@ -48,7 +48,7 @@ impl PacketAuthenticator {
     }
 
     pub fn authenticate(&self, bytes: &[u8]) -> [u8; 16] {
-        let mut md5 = HasherBuilder::build(HasherTypes::MD5);
+        let mut md5 = HasherBuilder::build(HasherType::MD5);
 
         md5.update(bytes);
         md5.update(self.salt.as_bytes());

@@ -1,5 +1,6 @@
+use std::marker;
 use byteorder::{NativeEndian, ByteOrder};
-use crypto::hash::{HasherBuilder, Hasher, HasherTypes};
+use crypto::hash::{HasherBuilder, Hasher, HasherType};
 
 #[derive(Debug)]
 pub enum CRCHasherType {
@@ -9,8 +10,12 @@ pub enum CRCHasherType {
     SHA1,
 }
 
+#[derive(Debug)]
+pub enum CRCHashError {
+    ModeNotExist,
+}
+
 trait CRCHasher {
-    fn from_mode(mode: u8) -> Self;
     fn hasher(&self) -> Box<Hasher>;
     fn retain_postions(&self) -> Vec<usize>;
 
@@ -32,6 +37,10 @@ trait CRCHasher {
     }
 }
 
+trait CRCHasherBuilder {
+    fn from_mode(mode: u8) -> Result<Self, CRCHashError> where Self: marker::Sized;
+}
+
 struct NoneHasher;
 impl Hasher for NoneHasher {
     #[allow(unused_variables)]
@@ -46,36 +55,43 @@ impl Hasher for NoneHasher {
 }
 
 impl CRCHasher for CRCHasherType {
-    fn from_mode(mode: u8) -> Self {
-        match mode {
-            0 => CRCHasherType::NONE,
-            3 => CRCHasherType::SHA1,
-
-            _ => CRCHasherType::MD5,
-        }
-    }
-
     fn hasher(&self) -> Box<Hasher> {
         match *self {
             CRCHasherType::NONE => Box::new(NoneHasher {}) as Box<Hasher>,
-            CRCHasherType::SHA1 => HasherBuilder::build(HasherTypes::SHA1),
-            _ => HasherBuilder::build(HasherTypes::MD5),
+            CRCHasherType::MD5 => HasherBuilder::build(HasherType::MD5),
+            CRCHasherType::MD4 => HasherBuilder::build(HasherType::MD4),
+            CRCHasherType::SHA1 => HasherBuilder::build(HasherType::SHA1),
         }
     }
 
     fn retain_postions(&self) -> Vec<usize> {
         match *self {
             CRCHasherType::NONE => vec![0, 1, 2, 3, 4, 5, 6, 7],
+            CRCHasherType::MD5 => vec![2, 3, 8, 9, 5, 6, 13, 14],
+            CRCHasherType::MD4 => vec![1, 2, 8, 9, 4, 5, 11, 12],
             CRCHasherType::SHA1 => vec![2, 3, 9, 10, 5, 6, 15, 16],
-
-            _ => vec![2, 3, 8, 9, 5, 6, 13, 14],
         }
     }
 }
 
-fn generate_crc_hash(bytes: &[u8], mode: u8) -> Vec<u8> {
-    let crc_hasher = CRCHasherType::from_mode(mode);
-    crc_hasher.hash(bytes)
+impl CRCHasherBuilder for CRCHasherType {
+    fn from_mode(mode: u8) -> Result<Self, CRCHashError>
+        where Self: marker::Sized
+    {
+        match mode {
+            0 => Ok(CRCHasherType::NONE),
+            1 => Ok(CRCHasherType::MD5),
+            2 => Ok(CRCHasherType::MD4),
+            3 => Ok(CRCHasherType::SHA1),
+
+            _ => Err(CRCHashError::ModeNotExist),
+        }
+    }
+}
+
+fn generate_crc_hash(bytes: &[u8], mode: u8) -> Result<Vec<u8>, CRCHashError> {
+    let crc_hasher = try!(CRCHasherType::from_mode(mode));
+    Ok(crc_hasher.hash(bytes))
 }
 
 fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, &'static str> {
@@ -95,12 +111,14 @@ fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, &'st
 
 #[test]
 fn test_generate_crc_hash() {
-    let crc_hash_md5 = generate_crc_hash(b"1234567890", 1);
-    let crc_hash_sha1 = generate_crc_hash(b"1234567890", 3);
-    let crc_hash_none = generate_crc_hash(b"1234567890", 0);
+    let crc_hash_none = generate_crc_hash(b"1234567890", 0).unwrap();
+    let crc_hash_md5 = generate_crc_hash(b"1234567890", 1).unwrap();
+    let crc_hash_md4 = generate_crc_hash(b"1234567890", 2).unwrap();
+    let crc_hash_sha1 = generate_crc_hash(b"1234567890", 3).unwrap();
     assert_eq!(crc_hash_md5, vec![241, 252, 155, 176, 45, 19, 56, 161]);
     assert_eq!(crc_hash_sha1, vec![7, 172, 175, 195, 79, 84, 246, 202]);
     assert_eq!(crc_hash_none, vec![199, 47, 49, 1, 126, 0, 0, 0]);
+    assert_eq!(crc_hash_md4, vec![177, 150, 28, 171, 227, 148, 144, 95]);
 }
 
 #[test]
