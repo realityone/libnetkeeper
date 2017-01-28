@@ -2,7 +2,7 @@ use std::io;
 use std::str;
 use std::str::FromStr;
 
-use openssl::crypto::symm;
+use crypto::cipher::{AES_128_ECB, SimpleCipher};
 use crypto::hash::{HasherBuilder, HasherTypes};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
@@ -257,19 +257,13 @@ impl ContentEncrypter for AES128Encrypter {
     }
 
     fn encrypt(&self, content_bytes: &[u8]) -> Vec<u8> {
-        symm::encrypt(symm::Type::AES_128_ECB,
-                      self.key_bytes(),
-                      None,
-                      content_bytes)
-            .unwrap()
+        let aes = AES_128_ECB::new(self.key_bytes()).unwrap();
+        aes.encrypt(content_bytes).unwrap()
     }
 
     fn decrypt(&self, content_bytes: &[u8]) -> Vec<u8> {
-        symm::decrypt(symm::Type::AES_128_ECB,
-                      self.key_bytes(),
-                      None,
-                      content_bytes)
-            .unwrap()
+        let aes = AES_128_ECB::new(self.key_bytes()).unwrap();
+        aes.decrypt(content_bytes).unwrap()
     }
 }
 

@@ -1,2 +1,2 @@
 pub mod hash;
-// pub mod symm;
+pub mod cipher;
