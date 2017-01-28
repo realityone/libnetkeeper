@@ -1,10 +1,6 @@
-use openssl::crypto::hash::{Hasher, Type};
+// use openssl::crypto::hash::{Hasher, Type};
 use byteorder::{NativeEndian, ByteOrder};
-
-#[derive(Debug)]
-pub struct Heartbeater {
-    count: u64,
-}
+use crypto::hash::{HasherBuilder, Hasher, HasherTypes};
 
 #[derive(Debug)]
 pub enum CRCHasherType {
@@ -16,15 +12,15 @@ pub enum CRCHasherType {
 
 trait CRCHasher {
     fn from_mode(mode: u8) -> Self;
-    fn hasher(&self) -> Hasher;
+    fn hasher(&self) -> Box<Hasher>;
     fn retain_postions(&self) -> Vec<usize>;
 
     fn hash(&self, bytes: &[u8]) -> Vec<u8> {
         let mut hasher = self.hasher();
         let retain_postions = self.retain_postions();
 
-        hasher.update(bytes).unwrap();
-        let hashed_bytes = hasher.finish().unwrap();
+        hasher.update(bytes);
+        let hashed_bytes = hasher.finish();
 
         let mut hashed = Vec::<u8>::with_capacity(retain_postions.len());
         for i in retain_postions {
@@ -46,12 +42,13 @@ impl CRCHasher for CRCHasherType {
         }
     }
 
-    fn hasher(&self) -> Hasher {
+    fn hasher(&self) -> Box<Hasher> {
         match *self {
-            CRCHasherType::SHA1 => Hasher::new(Type::SHA1).unwrap(),
-
+            CRCHasherType::SHA1 => HasherBuilder::build(HasherTypes::SHA1),
+            // CRCHasherType::MD5 => HasherBuilder::MD5::build(),
+            //
             // default md5 for now
-            _ => Hasher::new(Type::MD5).unwrap(),
+            _ => HasherBuilder::build(HasherTypes::MD5),
         }
     }
 

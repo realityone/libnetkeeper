@@ -1,7 +1,7 @@
 use std::str;
 
 use rustc_serialize::hex::ToHex;
-use openssl::crypto::hash::{Hasher, Type};
+use crypto::hash::{HasherBuilder, HasherTypes};
 
 use dialer::Dialer;
 use utils::{current_timestamp, any_to_bytes};
@@ -76,16 +76,16 @@ impl NetkeeperDialer {
 
         let pin89_str;
         {
-            let mut md5 = Hasher::new(Type::MD5).unwrap();
+            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
 
             let time_div_by_five_be = time_div_by_five.to_be();
             let tdbf_bytes = any_to_bytes(&time_div_by_five_be);
 
-            md5.update(tdbf_bytes).unwrap();
-            md5.update(username.split('@').nth(0).unwrap().as_bytes()).unwrap();
-            md5.update(self.share_key.as_bytes()).unwrap();
+            md5.update(tdbf_bytes);
+            md5.update(username.split('@').nth(0).unwrap().as_bytes());
+            md5.update(self.share_key.as_bytes());
 
-            let hashed_bytes = md5.finish().unwrap();
+            let hashed_bytes = md5.finish();
             pin89_str = hashed_bytes[0..1].to_hex();
         }
 

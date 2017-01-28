@@ -3,7 +3,7 @@ use std::str;
 use std::net::Ipv4Addr;
 
 use rustc_serialize::hex::ToHex;
-use openssl::crypto::hash::{Hasher, Type};
+use crypto::hash::{HasherBuilder, HasherTypes};
 use byteorder::{NetworkEndian, ByteOrder};
 
 use utils::{current_timestamp, any_to_bytes};
@@ -161,14 +161,14 @@ impl KeepaliveDataCalculator {
 
         let keepalive_data;
         {
-            let mut md5 = Hasher::new(Type::MD5).unwrap();
+            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
             let timenow_be = timenow.to_be();
             let timenow_bytes = any_to_bytes(&timenow_be);
 
-            md5.update(timenow_bytes).unwrap();
-            md5.update(salt.as_bytes()).unwrap();
+            md5.update(timenow_bytes);
+            md5.update(salt.as_bytes());
 
-            let hashed_bytes = md5.finish().unwrap();
+            let hashed_bytes = md5.finish();
             keepalive_data = hashed_bytes[..].to_hex();
         }
         keepalive_data
