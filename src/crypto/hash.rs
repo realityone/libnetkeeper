@@ -56,3 +56,12 @@ fn hash_bytes(bytes: &[u8], type_: HasherTypes) -> Vec<u8> {
     hasher.update(bytes);
     hasher.finish()
 }
+
+#[test]
+fn test_hash_bytes() {
+    assert_eq!(vec![33, 35, 47, 41, 122, 87, 165, 167, 67, 137, 74, 14, 74, 128, 31, 195],
+               hash_bytes(b"admin", HasherTypes::MD5));
+    assert_eq!(vec![208, 51, 226, 42, 227, 72, 174, 181, 102, 15, 194, 20, 10, 236, 53, 133, 12,
+                    77, 169, 151],
+               hash_bytes(b"admin", HasherTypes::SHA1));
+}
