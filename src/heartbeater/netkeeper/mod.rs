@@ -2,7 +2,8 @@ use std::io;
 use std::str;
 use std::str::FromStr;
 
-use openssl::crypto::{hash, symm};
+use openssl::crypto::symm;
+use crypto::hash::{HasherBuilder, HasherTypes};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
@@ -204,12 +205,12 @@ impl PacketUtils {
         let timestamp_hex = format!("{:08x}", timestamp);
         let timestamp_hex_chars: Vec<char> = timestamp_hex.chars().collect();
         {
-            let mut md5 = hash::Hasher::new(hash::Type::MD5).unwrap();
+            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
             let salt = salts[(timestamp % 3) as usize];
 
-            md5.update(timestamp_hex.as_bytes()).unwrap();
-            md5.update(salt.as_bytes()).unwrap();
-            hashed_bytes.clone_from_slice(&md5.finish().unwrap());
+            md5.update(timestamp_hex.as_bytes());
+            md5.update(salt.as_bytes());
+            hashed_bytes.clone_from_slice(&md5.finish());
         }
 
         format!("{}{}{:02x}{:02x}{}{}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{}{}{:02x}{:\

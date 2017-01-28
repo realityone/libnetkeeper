@@ -1,5 +1,5 @@
 use rustc_serialize::hex::ToHex;
-use openssl::crypto::hash::{Hasher, Type};
+use crypto::hash::{HasherBuilder, HasherTypes};
 
 use dialer::Dialer;
 use utils::{current_timestamp, any_to_bytes};
@@ -49,12 +49,16 @@ impl GhcaDialer {
         if cursor < 1 {
             cursor += 1;
         }
-        let match_flag = if cursor == pwd_len { 1 } else { 0 };
+        let match_flag = if cursor == pwd_len {
+            1
+        } else {
+            0
+        };
 
         let delta = cursor - match_flag;
         let md5_hash_prefix;
         {
-            let mut md5 = Hasher::new(Type::MD5).unwrap();
+            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
 
             let prefix_len = delta + 1;
             let suffix_len = pwd_len - prefix_len;
@@ -63,18 +67,17 @@ impl GhcaDialer {
             let sec_timestamp_be = sec_timestamp.to_be();
             let sec_timestamp_bytes = any_to_bytes(&sec_timestamp_be);
 
-            md5.update(sec_timestamp_bytes).unwrap();
-            md5.update(self.share_key[..(60 - prefix_len) as usize].as_bytes()).unwrap();
-            md5.update(pwd_prefix.as_bytes()).unwrap();
-            md5.update(username.as_bytes()).unwrap();
-            md5.update(self.share_key[..(64 - name_len - suffix_len) as usize].as_bytes())
-                .unwrap();
-            md5.update(pwd_suffix.as_bytes()).unwrap();
+            md5.update(sec_timestamp_bytes);
+            md5.update(self.share_key[..(60 - prefix_len) as usize].as_bytes());
+            md5.update(pwd_prefix.as_bytes());
+            md5.update(username.as_bytes());
+            md5.update(self.share_key[..(64 - name_len - suffix_len) as usize].as_bytes());
+            md5.update(pwd_suffix.as_bytes());
 
-            let first_hashed_bytes = md5.finish().unwrap();
-            let mut md5 = Hasher::new(Type::MD5).unwrap();
-            md5.update(&first_hashed_bytes).unwrap();
-            md5_hash_prefix = md5.finish().unwrap()[..8].to_hex().to_uppercase();
+            let first_hashed_bytes = md5.finish();
+            let mut md5 = HasherBuilder::build(HasherTypes::MD5);
+            md5.update(&first_hashed_bytes);
+            md5_hash_prefix = md5.finish()[..8].to_hex().to_uppercase();
         }
 
         let pwd_char_sum = password.as_bytes().iter().fold(0, |sum, x| sum + *x as u32);
