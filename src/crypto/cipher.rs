@@ -69,7 +69,7 @@ impl SimpleCipher for AES_128_ECB {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }
-            buffer::BufferResult::BufferOverflow => return Err(CipherError::BufferOverflow),
+            buffer::BufferResult::BufferOverflow => Err(CipherError::BufferOverflow),
         }
     }
 }

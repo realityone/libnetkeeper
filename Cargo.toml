@@ -8,8 +8,8 @@ byteorder = "0.5.3"
 linked-hash-map = "0.3.0"
 md4 = "0.4.1"
 rust-crypto = "0.2.36"
-rustc-serialize = "0.3.19"
-time = "0.1.35"
+rustc-serialize = "0.3.22"
+time = "0.1.36"
 
 [dependencies.clippy]
 optional = true
