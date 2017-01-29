@@ -22,7 +22,7 @@ pub trait DrCOMResponseCommon {
         0x4du8
     }
 
-    fn validate_packet<R>(input: &mut io::BufReader<R>) -> Result<(), DrCOMValidateError>
+    fn validate_stream<R>(input: &mut io::BufReader<R>) -> Result<(), DrCOMValidateError>
         where R: io::Read
     {
         let code_bytes = try!(input.read_bytes(1).map_err(DrCOMValidateError::PacketReadError));

@@ -32,7 +32,7 @@ impl GhcaDialer {
         }
     }
 
-    fn validate_username_password(username: &str, password: &str) -> Result<(), GhcaDialerError> {
+    fn validate(username: &str, password: &str) -> Result<(), GhcaDialerError> {
         if username.len() > 60 {
             return Err(GhcaDialerError::InvalidUsername(username.to_string()));
         }
@@ -48,7 +48,7 @@ impl GhcaDialer {
                            fst_timestamp: Option<u32>,
                            sec_timestamp: Option<u32>)
                            -> Result<String, GhcaDialerError> {
-        try!(Self::validate_username_password(username, password));
+        try!(Self::validate(username, password));
         let name_len = username.len() as u32;
         let pwd_len = password.len() as u32;
 

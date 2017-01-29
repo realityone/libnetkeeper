@@ -165,7 +165,7 @@ impl ChallengeResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_packet(input).map_err(DrCOMHeartbeatError::ValidateError));
+        try!(Self::validate_stream(input).map_err(DrCOMHeartbeatError::ValidateError));
         // drain unknow bytes
         try!(input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError));
 
