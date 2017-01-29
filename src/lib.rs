@@ -289,4 +289,52 @@ mod tests {
         assert_eq!(cr.challenge_seed, 185207048);
         assert_eq!(cr.source_ip, Ipv4Addr::from_str("12.13.14.15").unwrap());
     }
+
+    #[test]
+    fn test_drcom_pppoe_heartbeat() {
+        use std::net::Ipv4Addr;
+        use std::str::FromStr;
+        use heartbeater::drcom::pppoe::{HeartbeatRequest, HeartbeatFlag};
+
+        let hr1 = HeartbeatRequest::new(1,
+                                        Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                        HeartbeatFlag::First,
+                                        0x04030201u32,
+                                        None,
+                                        None,
+                                        None);
+        let hr2 = HeartbeatRequest::new(1,
+                                        Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                        HeartbeatFlag::NotFirst,
+                                        0x04030201u32,
+                                        None,
+                                        None,
+                                        None);
+        let hr3 = HeartbeatRequest::new(1,
+                                        Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                        HeartbeatFlag::NotFirst,
+                                        0x04030200u32,
+                                        None,
+                                        None,
+                                        None);
+
+        assert_eq!(hr1.as_bytes(),
+                   vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 98, 0, 42, 1, 2, 3,
+                        4, 192, 90, 161, 223, 81, 42, 143, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0]);
+        assert_eq!(hr2.as_bytes(),
+                   vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 99, 0, 42, 1, 2, 3,
+                        4, 192, 90, 161, 223, 81, 42, 143, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0]);
+        assert_eq!(hr3.as_bytes(),
+                   vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 99, 0, 42, 0, 2, 3,
+                        4, 136, 86, 26, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0]);
+    }
 }
