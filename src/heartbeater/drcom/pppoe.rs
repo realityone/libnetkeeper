@@ -9,6 +9,12 @@ use common::reader::{ReadBytesError, ReaderHelper};
 use common::drcom::{DrCOMCommon, DrCOMResponseCommon};
 
 #[derive(Debug)]
+pub enum HeartbeatFlag {
+    First,
+    NotFirst,
+}
+
+#[derive(Debug)]
 pub enum CRCHasherType {
     NONE,
     MD5,
@@ -20,6 +26,30 @@ pub enum CRCHasherType {
 pub enum CRCHashError {
     ModeNotExist,
     InputLengthInvalid,
+}
+
+struct NoneHasher;
+
+#[derive(Debug)]
+pub struct ChallengeRequest {
+    count: u8,
+}
+
+#[derive(Debug)]
+pub struct ChallengeResponse {
+    pub challenge_seed: u32,
+    pub source_ip: Ipv4Addr,
+}
+
+#[derive(Debug)]
+pub struct HeartbeatRequest {
+    count: u8,
+    type_id: u8,
+    uid_length: u8,
+    mac_address: [u8; 6],
+    source_ip: Ipv4Addr,
+    flag: HeartbeatFlag,
+    challenge_seed: u32,
 }
 
 trait CRCHasher {
@@ -51,7 +81,7 @@ trait CRCHasherBuilder {
     fn from_mode(mode: u8) -> Result<Self, CRCHashError> where Self: marker::Sized;
 }
 
-struct NoneHasher;
+
 impl Hasher for NoneHasher {
     #[allow(unused_variables)]
     fn update(&mut self, bytes: &[u8]) {}
@@ -97,17 +127,6 @@ impl CRCHasherBuilder for CRCHasherType {
             _ => Err(CRCHashError::ModeNotExist),
         }
     }
-}
-
-#[derive(Debug)]
-pub struct ChallengeRequest {
-    count: u8,
-}
-
-#[derive(Debug)]
-pub struct ChallengeResponse {
-    pub challenge_seed: u32,
-    pub source_ip: Ipv4Addr,
 }
 
 impl DrCOMCommon for ChallengeRequest {}
@@ -161,23 +180,6 @@ impl ChallengeResponse {
             source_ip: source_ip,
         })
     }
-}
-
-#[derive(Debug)]
-pub struct HeartbeatRequest {
-    count: u8,
-    type_id: u8,
-    uid_length: u8,
-    mac_address: [u8; 6],
-    source_ip: Ipv4Addr,
-    flag: HeartbeatFlag,
-    challenge_seed: u32,
-}
-
-#[derive(Debug)]
-pub enum HeartbeatFlag {
-    First,
-    NotFirst,
 }
 
 impl HeartbeatFlag {
