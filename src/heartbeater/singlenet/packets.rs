@@ -76,10 +76,7 @@ impl Packet {
                authorization: Option<[u8; 16]>,
                attributes: Vec<Attribute>)
                -> Self {
-        let authorization = match authorization {
-            Some(authorization) => authorization,
-            None => [0u8; 16],
-        };
+        let authorization = authorization.unwrap_or_default();
         let mut packet = Packet {
             magic_number: Self::magic_number(),
             length: 0,
@@ -178,10 +175,7 @@ impl Packet {
 impl PacketFactoryWin {
     fn calc_seq(timestamp: Option<u32>) -> u8 {
         // only be used in windows version,
-        let timestamp = match timestamp {
-            Some(timestamp) => timestamp,
-            None => current_timestamp(),
-        };
+        let timestamp = timestamp.unwrap_or_else(current_timestamp);
 
         let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
         ((tmp_num >> 0x10) & 0xff) as u8
@@ -194,25 +188,20 @@ impl PacketFactoryWin {
                              version: Option<&str>)
                              -> Packet {
         // FIXME: this protocol needs update
-        let version = match version {
-            Some(version) => version,
-            None => "1.2.22.36",
-        };
-        let timestamp = match timestamp {
-            Some(timestamp) => Some(timestamp),
-            None => Some(current_timestamp()),
-        };
-        let keepalive_data = KeepaliveDataCalculator::calculate(timestamp, last_keepalive_data);
+        let version = version.unwrap_or("1.2.22.36");
+        let timestamp = timestamp.unwrap_or_else(current_timestamp);
+        let keepalive_data = KeepaliveDataCalculator::calculate(Some(timestamp),
+                                                                last_keepalive_data);
 
         let attributes =
             vec![Attribute::from_type(AttributeType::TClientIPAddress, &ipaddress),
                  Attribute::from_type(AttributeType::TClientVersion, &version.to_string()),
                  Attribute::from_type(AttributeType::TKeepAliveData, &keepalive_data.to_string()),
-                 Attribute::from_type(AttributeType::TKeepAliveTime, &timestamp.unwrap()),
+                 Attribute::from_type(AttributeType::TKeepAliveTime, &timestamp),
                  Attribute::from_type(AttributeType::TUserName, &username.to_string())];
 
         Packet::new(PacketCode::CKeepAliveRequest,
-                    Self::calc_seq(timestamp),
+                    Self::calc_seq(Some(timestamp)),
                     None,
                     attributes)
     }
@@ -233,18 +222,9 @@ impl PacketFactoryMac {
                             mac_address: Option<&str>,
                             explorer: Option<&str>)
                             -> Packet {
-        let version = match version {
-            Some(version) => version,
-            None => "1.1.0",
-        };
-        let mac_address = match mac_address {
-            Some(mac_address) => mac_address,
-            None => "10:dd:b1:d5:95:ca",
-        };
-        let explorer = match explorer {
-            Some(explorer) => explorer,
-            None => "",
-        };
+        let version = version.unwrap_or("1.1.0");
+        let mac_address = mac_address.unwrap_or("10:dd:b1:d5:95:ca");
+        let explorer = explorer.unwrap_or_default();
         let client_type = &Self::client_type();
         let cpu_info = "Intel(R) Core(TM) i5-5287U CPU @ 2.90GHz";
         let memory_size = 0x2000;
@@ -274,14 +254,8 @@ impl PacketFactoryMac {
                           version: Option<&str>,
                           mac_address: Option<&str>)
                           -> Packet {
-        let version = match version {
-            Some(version) => version,
-            None => "1.1.0",
-        };
-        let mac_address = match mac_address {
-            Some(mac_address) => mac_address,
-            None => "10:dd:b1:d5:95:ca",
-        };
+        let version = version.unwrap_or("1.1.0");
+        let mac_address = mac_address.unwrap_or("10:dd:b1:d5:95:ca");
         let client_type = &Self::client_type();
 
         let attributes =
@@ -302,14 +276,8 @@ impl PacketFactoryMac {
                                     version: Option<&str>,
                                     mac_address: Option<&str>)
                                     -> Packet {
-        let version = match version {
-            Some(version) => version,
-            None => "1.1.0",
-        };
-        let mac_address = match mac_address {
-            Some(mac_address) => mac_address,
-            None => "10:dd:b1:d5:95:ca",
-        };
+        let version = version.unwrap_or("1.1.0");
+        let mac_address = mac_address.unwrap_or("10:dd:b1:d5:95:ca");
         let client_type = &Self::client_type();
 
         let attributes =

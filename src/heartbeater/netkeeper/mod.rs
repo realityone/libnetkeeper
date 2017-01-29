@@ -49,10 +49,7 @@ pub trait ContentEncrypter {
 
 impl Frame {
     pub fn new(type_name: &str, content: Option<LinkedHashMap<String, String>>) -> Self {
-        let content = match content {
-            Some(content) => content,
-            None => LinkedHashMap::new(),
-        };
+        let content = content.unwrap_or_else(LinkedHashMap::new);
         Frame {
             type_name: type_name.to_string(),
             content: content,
@@ -65,10 +62,7 @@ impl Frame {
 
     fn as_bytes(&self, join_with: Option<&str>) -> Vec<u8> {
         let mut linked_content: Vec<String> = Vec::new();
-        let join_with = match join_with {
-            Some(join_with) => join_with,
-            None => "&",
-        };
+        let join_with = join_with.unwrap_or("&");
         linked_content.push(format!("TYPE={}", self.type_name));
         for (key, value) in self.content.iter() {
             linked_content.push(format!("{}={}", key, value));
@@ -77,10 +71,7 @@ impl Frame {
     }
 
     fn from_bytes(bytes: &[u8], split_with: Option<&str>) -> Self {
-        let split_with = match split_with {
-            Some(split_with) => split_with,
-            None => "&",
-        };
+        let split_with = split_with.unwrap_or("&");
 
         let byte_content;
         unsafe {
@@ -196,10 +187,7 @@ impl Packet {
 
 impl PacketUtils {
     pub fn claculate_pin(timestamp: Option<u32>) -> String {
-        let timestamp = match timestamp {
-            Some(timestamp) => timestamp,
-            None => current_timestamp(),
-        };
+        let timestamp = timestamp.unwrap_or_else(current_timestamp);
         let salts = ["wanglei", "zhangni", "wangtianyou"];
         let mut hashed_bytes = [0; 16];
         let timestamp_hex = format!("{:08x}", timestamp);

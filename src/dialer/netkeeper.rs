@@ -39,10 +39,7 @@ impl NetkeeperDialer {
 
     pub fn encrypt_account(&self, username: &str, timestamp: Option<u32>) -> String {
         let username = username.to_uppercase();
-        let timenow = match timestamp {
-            Some(timestamp) => timestamp,
-            None => current_timestamp(),
-        };
+        let timenow = timestamp.unwrap_or_else(current_timestamp);
         let time_div_by_five: u32 = timenow / 5;
 
         let mut pin27_byte: [u8; 6] = [0; 6];

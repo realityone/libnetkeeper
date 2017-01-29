@@ -36,14 +36,8 @@ impl GhcaDialer {
         if name_len >= 60 || pwd_len >= 60 {
             return Err("username and password must be shorter than 60 characters.");
         }
-        let fst_timestamp = match fst_timestamp {
-            Some(fst_timestamp) => fst_timestamp,
-            None => current_timestamp(),
-        };
-        let sec_timestamp = match sec_timestamp {
-            Some(sec_timestamp) => sec_timestamp,
-            None => current_timestamp(),
-        };
+        let fst_timestamp = fst_timestamp.unwrap_or_else(current_timestamp);
+        let sec_timestamp = sec_timestamp.unwrap_or_else(current_timestamp);
 
         let mut cursor = fst_timestamp % pwd_len;
         if cursor < 1 {

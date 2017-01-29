@@ -134,11 +134,7 @@ impl DrCOMResponseCommon for ChallengeResponse {}
 
 impl ChallengeRequest {
     pub fn new(sequence: Option<u8>) -> Self {
-        let sequence = match sequence {
-            Some(c) => c,
-            None => 1u8,
-        };
-        ChallengeRequest { sequence: sequence }
+        ChallengeRequest { sequence: sequence.unwrap_or(1u8) }
     }
 
     fn magic_number() -> u32 {
@@ -202,23 +198,11 @@ impl HeartbeatRequest {
                uid_length: Option<u8>,
                mac_address: Option<[u8; 6]>)
                -> Self {
-        let type_id = match type_id {
-            Some(tid) => tid,
-            None => 3u8,
-        };
-        let uid_length = match uid_length {
-            Some(ul) => ul,
-            None => 0u8,
-        };
-        let mac_address = match mac_address {
-            Some(mac) => mac,
-            None => [0u8; 6],
-        };
         HeartbeatRequest {
             sequence: sequence,
-            type_id: type_id,
-            uid_length: uid_length,
-            mac_address: mac_address,
+            type_id: type_id.unwrap_or(3u8),
+            uid_length: uid_length.unwrap_or(0u8),
+            mac_address: mac_address.unwrap_or([0u8; 6]),
             source_ip: source_ip,
             flag: flag,
             challenge_seed: challenge_seed,
@@ -315,10 +299,7 @@ fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, CRCH
         return Err(CRCHashError::InputLengthInvalid);
     }
 
-    let mut result = match initial {
-        Some(initial) => initial,
-        None => 0,
-    };
+    let mut result = initial.unwrap_or(0u32);
     for c in 0..(bytes.len() / 4usize) {
         result ^= NativeEndian::read_u32(&bytes[c * 4..c * 4 + 4]);
     }

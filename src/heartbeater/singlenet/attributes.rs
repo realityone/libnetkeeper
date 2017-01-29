@@ -149,15 +149,8 @@ impl Attribute {
 
 impl KeepaliveDataCalculator {
     pub fn calculate(timestamp: Option<u32>, last_data: Option<&str>) -> String {
-        let timenow = match timestamp {
-            Some(timestamp) => timestamp,
-            None => current_timestamp(),
-        };
-
-        let salt = match last_data {
-            Some(data) => data,
-            None => "llwl",
-        };
+        let timenow = timestamp.unwrap_or_else(current_timestamp);
+        let salt = last_data.unwrap_or("llwl");
 
         let keepalive_data;
         {

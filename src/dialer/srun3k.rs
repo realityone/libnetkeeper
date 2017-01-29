@@ -11,10 +11,7 @@ pub struct Srun3kDialer {
 
 impl Srun3kDialer {
     pub fn new(config: Option<Configuration>) -> Self {
-        let config = match config {
-            Some(config) => config,
-            None => Configuration::TaLiMu,
-        };
+        let config = config.unwrap_or(Configuration::TaLiMu);
         Srun3kDialer { configuration: config }
     }
 
