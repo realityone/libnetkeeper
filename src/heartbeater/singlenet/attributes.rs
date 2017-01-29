@@ -9,12 +9,12 @@ use byteorder::{NetworkEndian, ByteOrder};
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
-pub enum ParseAttributeErr {
+pub enum ParseAttributesError {
     // Expect length {}, got {}
     UnexpectDataLength(usize, usize),
 }
 
-type AttributeResult<T> = result::Result<T, ParseAttributeErr>;
+type AttributeResult<T> = result::Result<T, ParseAttributesError>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
@@ -355,7 +355,7 @@ impl AttributeVec for Vec<Attribute> {
                 return Ok(attributes);
             }
             if bytes_length < header_length {
-                return Err(ParseAttributeErr::UnexpectDataLength(header_length, bytes_length));
+                return Err(ParseAttributesError::UnexpectDataLength(header_length, bytes_length));
             }
             let attribute_id = cursor[0];
 
@@ -363,7 +363,7 @@ impl AttributeVec for Vec<Attribute> {
             index += data_length;
 
             if data_length > bytes_length {
-                return Err(ParseAttributeErr::UnexpectDataLength(data_length, bytes_length));
+                return Err(ParseAttributesError::UnexpectDataLength(data_length, bytes_length));
             }
 
             let mut data: Vec<u8> = Vec::new();

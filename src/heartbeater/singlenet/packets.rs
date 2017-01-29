@@ -5,13 +5,14 @@ use crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{NetworkEndian, ByteOrder};
 
 use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
-                                         KeepaliveDataCalculator};
+                                         KeepaliveDataCalculator, ParseAttributesError};
 use common::reader::{ReadBytesError, ReaderHelper};
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
 pub enum SinglenetHeartbeatError {
     PacketReadError(ReadBytesError),
+    ParseAttributesError(ParseAttributesError),
     UnexpectedBytes(Vec<u8>),
 }
 
@@ -173,10 +174,8 @@ impl Packet {
         {
             let attributes_bytes = try!(input.read_bytes((length - Self::header_length()) as usize)
                 .map_err(SinglenetHeartbeatError::PacketReadError));
-            match Vec::<Attribute>::from_bytes(&attributes_bytes) {
-                Ok(attributes_result) => attributes = attributes_result,
-                Err(_) => return Err(SinglenetHeartbeatError::UnexpectedBytes(attributes_bytes)),
-            }
+            attributes = try!(Vec::<Attribute>::from_bytes(&attributes_bytes)
+                .map_err(SinglenetHeartbeatError::ParseAttributesError));
         }
 
         Ok(Packet::new(code, seq, Some(authorization), attributes))
