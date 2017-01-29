@@ -135,9 +135,8 @@ impl Attribute {
         let mut attribute_bytes = Vec::new();
         {
             let mut length_bytes = [0u8; 2];
-            {
-                NetworkEndian::write_u16(&mut length_bytes, self.length());
-            }
+            NetworkEndian::write_u16(&mut length_bytes, self.length());
+
             let raw_attribute_id = self.attribute_id as u8;
             attribute_bytes.push(raw_attribute_id);
             attribute_bytes.extend_from_slice(&length_bytes);
@@ -160,9 +159,7 @@ impl KeepaliveDataCalculator {
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
             let mut timenow_bytes = [0u8; 4];
-            {
-                NetworkEndian::write_u32(&mut timenow_bytes, timenow);
-            }
+            NetworkEndian::write_u32(&mut timenow_bytes, timenow);
 
             md5.update(&timenow_bytes);
             md5.update(salt.as_bytes());

@@ -112,10 +112,9 @@ impl Packet {
         {
             let mut magic_number_bytes = [0u8; 2];
             let mut length_bytes = [0u8; 2];
-            {
-                NetworkEndian::write_u16(&mut magic_number_bytes, self.magic_number);
-                NetworkEndian::write_u16(&mut length_bytes, self.length);
-            }
+            NetworkEndian::write_u16(&mut magic_number_bytes, self.magic_number);
+            NetworkEndian::write_u16(&mut length_bytes, self.length);
+
             let attributes_bytes = self.attributes.as_bytes();
             let raw_packet_code = self.code as u8;
 

@@ -77,9 +77,7 @@ impl NetkeeperDialer {
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
             let mut tdbf_bytes = [0u8; 4];
-            {
-                NetworkEndian::write_u32(&mut tdbf_bytes, time_div_by_five);
-            }
+            NetworkEndian::write_u32(&mut tdbf_bytes, time_div_by_five);
 
             md5.update(&tdbf_bytes);
             md5.update(username.split('@').nth(0).unwrap().as_bytes());

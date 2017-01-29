@@ -64,9 +64,7 @@ impl MACOpenPacket {
                 .clone_from_slice(self.mac_address.as_bytes());
 
             let mut isp_bytes = [0u8; 4];
-            {
-                NetworkEndian::write_u32(&mut isp_bytes, self.isp as u32);
-            }
+            NetworkEndian::write_u32(&mut isp_bytes, self.isp as u32);
 
             macopen_packet.extend_from_slice(&username_bytes);
             macopen_packet.extend_from_slice(&self.ipaddress.octets());
