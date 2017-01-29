@@ -32,7 +32,7 @@ struct NoneHasher;
 
 #[derive(Debug)]
 pub struct ChallengeRequest {
-    count: u8,
+    sequence: u8,
 }
 
 #[derive(Debug)]
@@ -43,7 +43,7 @@ pub struct ChallengeResponse {
 
 #[derive(Debug)]
 pub struct HeartbeatRequest {
-    count: u8,
+    sequence: u8,
     type_id: u8,
     uid_length: u8,
     mac_address: [u8; 6],
@@ -133,12 +133,12 @@ impl DrCOMCommon for ChallengeRequest {}
 impl DrCOMResponseCommon for ChallengeResponse {}
 
 impl ChallengeRequest {
-    pub fn new(count: Option<u8>) -> Self {
-        let count = match count {
+    pub fn new(sequence: Option<u8>) -> Self {
+        let sequence = match sequence {
             Some(c) => c,
             None => 1u8,
         };
-        ChallengeRequest { count: count }
+        ChallengeRequest { sequence: sequence }
     }
 
     fn magic_number() -> u32 {
@@ -148,7 +148,7 @@ impl ChallengeRequest {
     pub fn as_bytes(&self) -> [u8; 8] {
         let mut result = [0u8; 8];
         result[0] = Self::code();
-        result[1] = self.count;
+        result[1] = self.sequence;
         NativeEndian::write_u32(&mut result[2..], Self::magic_number());
         result
     }
@@ -194,7 +194,7 @@ impl HeartbeatFlag {
 impl DrCOMCommon for HeartbeatRequest {}
 
 impl HeartbeatRequest {
-    pub fn new(count: u8,
+    pub fn new(sequence: u8,
                source_ip: Ipv4Addr,
                flag: HeartbeatFlag,
                challenge_seed: u32,
@@ -215,7 +215,7 @@ impl HeartbeatRequest {
             None => [0u8; 6],
         };
         HeartbeatRequest {
-            count: count,
+            sequence: sequence,
             type_id: type_id,
             uid_length: uid_length,
             mac_address: mac_address,
@@ -227,7 +227,7 @@ impl HeartbeatRequest {
 
     fn header_length() -> usize {
         1 + // code 
-        1 + // count
+        1 + // sequence
         2 // packet_length
     }
 
@@ -253,7 +253,7 @@ impl HeartbeatRequest {
         let mut header_bytes = Vec::with_capacity(Self::header_length());
         {
             header_bytes.push(Self::code());
-            header_bytes.push(self.count);
+            header_bytes.push(self.sequence);
 
             let mut packet_length_bytes = [0u8; 2];
             {
