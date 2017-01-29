@@ -79,6 +79,8 @@ fn hash_bytes(bytes: &[u8], type_: HasherType) -> Vec<u8> {
 
 #[test]
 fn test_hash_bytes() {
+    assert_eq!(vec![249, 212, 4, 157, 214, 164, 220, 53, 212, 14, 82, 101, 149, 75, 42, 70],
+               hash_bytes(b"admin", HasherType::MD4));
     assert_eq!(vec![33, 35, 47, 41, 122, 87, 165, 167, 67, 137, 74, 14, 74, 128, 31, 195],
                hash_bytes(b"admin", HasherType::MD5));
     assert_eq!(vec![208, 51, 226, 42, 227, 72, 174, 181, 102, 15, 194, 20, 10, 236, 53, 133, 12,

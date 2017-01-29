@@ -73,3 +73,15 @@ impl SimpleCipher for AES_128_ECB {
         }
     }
 }
+
+#[test]
+fn test_aes_128_ecb_cipher() {
+    let message = b"Hello, World";
+    let key = b"1234567887654321";
+    let aes = AES_128_ECB::new(key).unwrap();
+    let encrypted = aes.encrypt(message).unwrap();
+    let decrypted = aes.decrypt(encrypted.as_slice()).unwrap();
+    assert_eq!(vec![208, 217, 45, 21, 237, 39, 220, 119, 98, 164, 86, 69, 76, 172, 126, 5],
+               encrypted);
+    assert_eq!(message.to_vec(), decrypted);
+}
