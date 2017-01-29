@@ -6,7 +6,7 @@ use crypto::hash::{HasherBuilder, HasherType};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
-use utils::{current_timestamp, any_to_bytes};
+use utils::current_timestamp;
 use common::reader::{ReadBytesError, ReaderHelper};
 
 #[derive(Debug)]
@@ -111,21 +111,21 @@ impl Packet {
     {
         let mut packet_bytes = Vec::new();
         {
-            let magic_number_be = self.magic_number.to_be();
             let version_str = self.version.to_string();
-            let code_be = self.code.to_be();
             let enc_content = try!(encrypter.encrypt(&self.frame.as_bytes(None))
                 .map_err(NetkeeperHeartbeatError::PacketCipherError));
-            let enc_content_length_be = (enc_content.len() as u32).to_be();
 
-            let magic_number_be_bytes = any_to_bytes(&magic_number_be);
-            let code_be_bytes = any_to_bytes(&code_be);
-            let enc_length_bytes = any_to_bytes(&enc_content_length_be);
+            let mut magic_number_bytes = [0u8; 2];
+            let mut code_bytes = [0u8; 2];
+            let mut enc_length_bytes = [0u8; 4];
+            NetworkEndian::write_u16(&mut magic_number_bytes, self.magic_number);
+            NetworkEndian::write_u16(&mut code_bytes, self.code);
+            NetworkEndian::write_u32(&mut enc_length_bytes, enc_content.len() as u32);
 
-            packet_bytes.extend_from_slice(magic_number_be_bytes);
+            packet_bytes.extend_from_slice(&magic_number_bytes);
             packet_bytes.extend(version_str.as_bytes());
-            packet_bytes.extend_from_slice(code_be_bytes);
-            packet_bytes.extend_from_slice(enc_length_bytes);
+            packet_bytes.extend_from_slice(&code_bytes);
+            packet_bytes.extend_from_slice(&enc_length_bytes);
             packet_bytes.extend(enc_content);
         }
         Ok(packet_bytes)
@@ -166,7 +166,7 @@ impl Packet {
         {
             let content_length_bytes = try!(input.read_bytes(4)
                 .map_err(NetkeeperHeartbeatError::PacketReadError));
-            content_length = NetworkEndian::read_i32(&content_length_bytes);
+            content_length = NetworkEndian::read_u32(&content_length_bytes);
         }
 
         let encrypted_content = try!(input.read_bytes(content_length as usize)

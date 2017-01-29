@@ -6,7 +6,7 @@ use rustc_serialize::hex::ToHex;
 use crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{NetworkEndian, ByteOrder};
 
-use utils::{current_timestamp, any_to_bytes};
+use utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum ParseAttributesError {
@@ -134,11 +134,13 @@ impl Attribute {
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut attribute_bytes = Vec::new();
         {
-            let length_be = self.length().to_be();
-            let length_bytes = any_to_bytes(&length_be);
+            let mut length_bytes = [0u8; 2];
+            {
+                NetworkEndian::write_u16(&mut length_bytes, self.length());
+            }
             let raw_attribute_id = self.attribute_id as u8;
             attribute_bytes.push(raw_attribute_id);
-            attribute_bytes.extend_from_slice(length_bytes);
+            attribute_bytes.extend_from_slice(&length_bytes);
             attribute_bytes.extend_from_slice(&self.data);
         }
         attribute_bytes
@@ -157,10 +159,12 @@ impl KeepaliveDataCalculator {
         let keepalive_data;
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
-            let timenow_be = timenow.to_be();
-            let timenow_bytes = any_to_bytes(&timenow_be);
+            let mut timenow_bytes = [0u8; 4];
+            {
+                NetworkEndian::write_u32(&mut timenow_bytes, timenow);
+            }
 
-            md5.update(timenow_bytes);
+            md5.update(&timenow_bytes);
             md5.update(salt.as_bytes());
 
             let hashed_bytes = md5.finish();
@@ -387,8 +391,9 @@ impl AttributeValue for String {
 
 impl AttributeValue for u32 {
     fn as_bytes(&self) -> Vec<u8> {
-        let be_num = self.to_be();
-        any_to_bytes(&be_num).to_vec()
+        let mut bytes = [0u8; 4];
+        NetworkEndian::write_u32(&mut bytes, *self);
+        bytes.to_vec()
     }
 }
 

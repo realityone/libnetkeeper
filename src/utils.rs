@@ -9,6 +9,7 @@ pub fn current_timestamp() -> u32 {
     timespec.sec as u32
 }
 
+// Deprecated
 pub fn any_to_bytes<T>(any_type: &T) -> &[u8]
     where T: any::Any
 {

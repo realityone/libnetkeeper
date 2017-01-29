@@ -1,10 +1,12 @@
 use std::str;
 
+use byteorder::{NetworkEndian, ByteOrder};
 use rustc_serialize::hex::ToHex;
+
 use crypto::hash::{HasherBuilder, HasherType};
+use utils::current_timestamp;
 
 use dialer::Dialer;
-use utils::{current_timestamp, any_to_bytes};
 
 // copy from https://github.com/miao1007/Openwrt-NetKeeper
 #[derive(Debug)]
@@ -74,11 +76,12 @@ impl NetkeeperDialer {
         let pin89_str;
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
+            let mut tdbf_bytes = [0u8; 4];
+            {
+                NetworkEndian::write_u32(&mut tdbf_bytes, time_div_by_five);
+            }
 
-            let time_div_by_five_be = time_div_by_five.to_be();
-            let tdbf_bytes = any_to_bytes(&time_div_by_five_be);
-
-            md5.update(tdbf_bytes);
+            md5.update(&tdbf_bytes);
             md5.update(username.split('@').nth(0).unwrap().as_bytes());
             md5.update(self.share_key.as_bytes());
 

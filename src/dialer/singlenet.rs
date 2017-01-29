@@ -1,8 +1,10 @@
 use std::str;
 use std::slice;
 
+use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
+
 use dialer::Dialer;
-use utils::{current_timestamp, any_to_bytes};
+use utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum Configuration {
@@ -31,11 +33,10 @@ impl SingleNetDialer {
 
         let first_hash: u16;
         {
-            let timenow_be = timenow.to_be();
-            let timenow_bytes = any_to_bytes(&timenow_be);
-
+            let mut timenow_bytes = [0u8; 4];
+            NetworkEndian::write_u32(&mut timenow_bytes, timenow);
             let mut hash_data: Vec<u8> = Vec::new();
-            hash_data.extend_from_slice(timenow_bytes);
+            hash_data.extend_from_slice(&timenow_bytes);
             hash_data.extend(self.share_key.as_bytes());
             hash_data.extend(username.split('@').nth(0).unwrap().as_bytes());
             first_hash = Self::calc_hash(&hash_data)
@@ -43,11 +44,10 @@ impl SingleNetDialer {
 
         let second_hash: u16;
         {
-            let first_hash_be = first_hash.to_be();
-            let first_hash_bytes = any_to_bytes(&first_hash_be);
-
+            let mut first_hash_bytes = [0u8; 2];
+            NetworkEndian::write_u16(&mut first_hash_bytes, first_hash);
             let mut hash_data: Vec<u8> = Vec::new();
-            hash_data.extend_from_slice(first_hash_bytes);
+            hash_data.extend_from_slice(&first_hash_bytes);
             hash_data.extend(self.secret_key.as_bytes());
             second_hash = Self::calc_hash(&hash_data);
         }
@@ -56,18 +56,21 @@ impl SingleNetDialer {
         {
             let timenow_high = (timenow >> 16) as u16;
             let timenow_low = (timenow & 0xFFFF) as u16;
-            let timenow_high_be = timenow_high.to_be();
-            let timenow_low_be = timenow_low.to_be();
 
-            let timenow_high_bytes = any_to_bytes(&timenow_high_be);
-            let timenow_low_bytes = any_to_bytes(&timenow_low_be);
-            let first_hash_bytes = any_to_bytes(&first_hash);
-            let second_hash_bytes = any_to_bytes(&second_hash);
+            let mut timenow_high_bytes = [0u8; 2];
+            let mut timenow_low_bytes = [0u8; 2];
+            let mut first_hash_bytes = [0u8; 2];
+            let mut second_hash_bytes = [0u8; 2];
 
-            scheduled_table.extend_from_slice(timenow_high_bytes);
-            scheduled_table.extend_from_slice(first_hash_bytes);
-            scheduled_table.extend_from_slice(timenow_low_bytes);
-            scheduled_table.extend_from_slice(second_hash_bytes);
+            NetworkEndian::write_u16(&mut timenow_high_bytes, timenow_high);
+            NetworkEndian::write_u16(&mut timenow_low_bytes, timenow_low);
+            NativeEndian::write_u16(&mut first_hash_bytes, first_hash);
+            NativeEndian::write_u16(&mut second_hash_bytes, second_hash);
+
+            scheduled_table.extend_from_slice(&timenow_high_bytes);
+            scheduled_table.extend_from_slice(&first_hash_bytes);
+            scheduled_table.extend_from_slice(&timenow_low_bytes);
+            scheduled_table.extend_from_slice(&second_hash_bytes);
         }
 
         let mut vectors: [u8; 12] = [0; 12];
