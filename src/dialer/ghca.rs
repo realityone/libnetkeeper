@@ -5,6 +5,12 @@ use dialer::Dialer;
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug)]
+pub enum GhcaDialerError {
+    InvalidUsername(String),
+    InvalidPassword(String),
+}
+
+#[derive(Debug)]
 pub enum Configuration {
     SichuanMac,
 }
@@ -25,17 +31,26 @@ impl GhcaDialer {
         }
     }
 
+    fn validate_username_password(username: &str, password: &str) -> Result<(), GhcaDialerError> {
+        if username.len() > 60 {
+            return Err(GhcaDialerError::InvalidUsername(username.to_string()));
+        }
+        if password.len() > 60 {
+            return Err(GhcaDialerError::InvalidUsername(password.to_string()));
+        }
+        Ok(())
+    }
+
     pub fn encrypt_account(&self,
                            username: &str,
                            password: &str,
                            fst_timestamp: Option<u32>,
                            sec_timestamp: Option<u32>)
-                           -> Result<String, &'static str> {
+                           -> Result<String, GhcaDialerError> {
+        try!(Self::validate_username_password(username, password));
         let name_len = username.len() as u32;
         let pwd_len = password.len() as u32;
-        if name_len >= 60 || pwd_len >= 60 {
-            return Err("username and password must be shorter than 60 characters.");
-        }
+
         let fst_timestamp = fst_timestamp.unwrap_or_else(current_timestamp);
         let sec_timestamp = sec_timestamp.unwrap_or_else(current_timestamp);
 

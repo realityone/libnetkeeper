@@ -1,14 +1,22 @@
-use std::io;
-use std::str;
+use std::{io, str, result};
 use std::str::FromStr;
 
-use crypto::cipher::{AES_128_ECB, SimpleCipher};
+use crypto::cipher::{SimpleCipher, CipherError};
 use crypto::hash::{HasherBuilder, HasherType};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
 use utils::{current_timestamp, any_to_bytes};
 use common::reader::{ReadBytesError, ReaderHelper};
+
+#[derive(Debug)]
+pub enum NetkeeperHeartbeatError {
+    PacketCipherError(CipherError),
+    PacketReadError(ReadBytesError),
+    UnexpectedBytes(Vec<u8>),
+}
+
+type PacketResult<T> = result::Result<T, NetkeeperHeartbeatError>;
 
 #[derive(Debug)]
 pub struct Frame {
@@ -25,27 +33,6 @@ pub struct Packet {
 }
 
 pub struct PacketUtils;
-
-#[derive(Debug)]
-pub struct AES128Encrypter {
-    key: String,
-}
-
-pub trait ContentEncrypter {
-    fn pad(content_bytes: &[u8], length: usize) -> Vec<u8> {
-        let pad_size = (length - content_bytes.len() % length) % length;
-        let mut result: Vec<u8> = Vec::new();
-        result.extend_from_slice(content_bytes);
-        for _ in 0..pad_size {
-            result.push(pad_size as u8);
-        }
-        result
-    }
-
-    fn key_bytes(&self) -> &[u8];
-    fn encrypt(&self, content_bytes: &[u8]) -> Vec<u8>;
-    fn decrypt(&self, content_bytes: &[u8]) -> Vec<u8>;
-}
 
 impl Frame {
     pub fn new(type_name: &str, content: Option<LinkedHashMap<String, String>>) -> Self {
@@ -119,15 +106,16 @@ impl Packet {
         }
     }
 
-    pub fn as_bytes<E>(&self, encrypter: &E) -> Vec<u8>
-        where E: ContentEncrypter
+    pub fn as_bytes<E>(&self, encrypter: &E) -> PacketResult<Vec<u8>>
+        where E: SimpleCipher
     {
         let mut packet_bytes = Vec::new();
         {
             let magic_number_be = self.magic_number.to_be();
             let version_str = self.version.to_string();
             let code_be = self.code.to_be();
-            let enc_content = encrypter.encrypt(&self.frame.as_bytes(None));
+            let enc_content = try!(encrypter.encrypt(&self.frame.as_bytes(None))
+                .map_err(NetkeeperHeartbeatError::PacketCipherError));
             let enc_content_length_be = (enc_content.len() as u32).to_be();
 
             let magic_number_be_bytes = any_to_bytes(&magic_number_be);
@@ -140,45 +128,51 @@ impl Packet {
             packet_bytes.extend_from_slice(enc_length_bytes);
             packet_bytes.extend(enc_content);
         }
-        packet_bytes
+        Ok(packet_bytes)
     }
 
     pub fn from_bytes<R, E>(input: &mut io::BufReader<R>,
                             encrypter: &E,
                             split_with: Option<&str>)
-                            -> Result<Self, ReadBytesError>
-        where E: ContentEncrypter,
+                            -> PacketResult<Self>
+        where E: SimpleCipher,
               R: io::Read
     {
         {
-            let magic_number_bytes = try!(input.read_bytes(2));
+            let magic_number_bytes = try!(input.read_bytes(2)
+                .map_err(NetkeeperHeartbeatError::PacketReadError));
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
-                return Err(ReadBytesError::UnexpectedBytes(magic_number_bytes));;
+                return Err(NetkeeperHeartbeatError::UnexpectedBytes(magic_number_bytes));
             }
         }
 
         let version;
         {
-            let version_bytes = try!(input.read_bytes(2));
+            let version_bytes = try!(input.read_bytes(2)
+                .map_err(NetkeeperHeartbeatError::PacketReadError));
             let version_str = String::from_utf8(version_bytes).unwrap();
             version = version_str.parse::<u8>().unwrap();
         }
 
         let code;
         {
-            let code_bytes = try!(input.read_bytes(2));
+            let code_bytes = try!(input.read_bytes(2)
+                .map_err(NetkeeperHeartbeatError::PacketReadError));
             code = NetworkEndian::read_u16(&code_bytes);
         }
 
         let content_length;
         {
-            let content_length_bytes = try!(input.read_bytes(4));
+            let content_length_bytes = try!(input.read_bytes(4)
+                .map_err(NetkeeperHeartbeatError::PacketReadError));
             content_length = NetworkEndian::read_i32(&content_length_bytes);
         }
 
-        let encrypted_content = try!(input.read_bytes(content_length as usize));
-        let plain_content = encrypter.decrypt(&encrypted_content);
+        let encrypted_content = try!(input.read_bytes(content_length as usize)
+            .map_err(NetkeeperHeartbeatError::PacketReadError));
+        let plain_content = try!(encrypter.decrypt(&encrypted_content)
+            .map_err(NetkeeperHeartbeatError::PacketCipherError));
         let frame = Frame::from_bytes(&plain_content, split_with);
 
         Ok(Self::new(version, code, frame))
@@ -230,31 +224,6 @@ impl PacketUtils {
     }
 }
 
-impl AES128Encrypter {
-    pub fn new(key: &str) -> Result<AES128Encrypter, &'static str> {
-        if key.len() != 16 {
-            return Err("In AES 128 mode, key must be 16 characters.");
-        }
-        Ok(AES128Encrypter { key: key.to_string() })
-    }
-}
-
-impl ContentEncrypter for AES128Encrypter {
-    fn key_bytes(&self) -> &[u8] {
-        self.key.as_bytes()
-    }
-
-    fn encrypt(&self, content_bytes: &[u8]) -> Vec<u8> {
-        let aes = AES_128_ECB::new(self.key_bytes()).unwrap();
-        aes.encrypt(content_bytes).unwrap()
-    }
-
-    fn decrypt(&self, content_bytes: &[u8]) -> Vec<u8> {
-        let aes = AES_128_ECB::new(self.key_bytes()).unwrap();
-        aes.decrypt(content_bytes).unwrap()
-    }
-}
-
 #[test]
 fn test_frame_concat() {
     let mut content = LinkedHashMap::new();
@@ -290,9 +259,11 @@ fn test_calc_heartbeat_pin() {
 
 #[test]
 fn test_aes_128_ecb_encrypt() {
-    let aes = AES128Encrypter::new("xlzjhrprotocol3x").unwrap();
+    use crypto::cipher::AES_128_ECB;
+
+    let aes = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
     let plain_text = "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000";
-    let encrypted = aes.encrypt(plain_text.as_bytes());
+    let encrypted = aes.encrypt(plain_text.as_bytes()).unwrap();
     let real_data = vec![66, 100, 164, 73, 167, 41, 222, 211, 188, 8, 14, 110, 252, 246, 121, 119,
                          79, 18, 254, 193, 72, 163, 54, 136, 248, 60, 221, 177, 221, 0, 13, 10,
                          146, 141, 142, 244, 89, 10, 176, 106, 162, 242, 204, 38, 73, 34, 55, 137,

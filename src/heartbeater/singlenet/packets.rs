@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, result};
 use std::net::Ipv4Addr;
 
 use crypto::hash::{HasherBuilder, HasherType};
@@ -8,6 +8,14 @@ use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
                                          KeepaliveDataCalculator};
 use common::reader::{ReadBytesError, ReaderHelper};
 use utils::{current_timestamp, any_to_bytes};
+
+#[derive(Debug)]
+pub enum SinglenetHeartbeatError {
+    PacketReadError(ReadBytesError),
+    UnexpectedBytes(Vec<u8>),
+}
+
+type PacketResult<T> = result::Result<T, SinglenetHeartbeatError>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum PacketCode {
@@ -119,51 +127,55 @@ impl Packet {
         bytes
     }
 
-    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> Result<Self, ReadBytesError>
+    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
         where R: io::Read
     {
         {
-            let magic_number_bytes = try!(input.read_bytes(2));
+            let magic_number_bytes = try!(input.read_bytes(2)
+                .map_err(SinglenetHeartbeatError::PacketReadError));
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
-                return Err(ReadBytesError::UnexpectedBytes(magic_number_bytes));;
+                return Err(SinglenetHeartbeatError::UnexpectedBytes(magic_number_bytes));;
             }
         }
 
         let length;
         {
-            let length_bytes = try!(input.read_bytes(2));
+            let length_bytes = try!(input.read_bytes(2)
+                .map_err(SinglenetHeartbeatError::PacketReadError));
             length = NetworkEndian::read_u16(&length_bytes);
         }
 
         let code;
         {
-            let code_bytes = try!(input.read_bytes(1));
+            let code_bytes = try!(input.read_bytes(1)
+                .map_err(SinglenetHeartbeatError::PacketReadError));
             let code_u8 = code_bytes[0];
             match PacketCode::from_u8(code_u8) {
                 Some(packet_code) => code = packet_code,
-                None => return Err(ReadBytesError::UnexpectedBytes(code_bytes)),
+                None => return Err(SinglenetHeartbeatError::UnexpectedBytes(code_bytes)),
             }
         }
 
         let seq;
         {
-            seq = try!(input.read_bytes(1))[0];
+            seq = try!(input.read_bytes(1).map_err(SinglenetHeartbeatError::PacketReadError))[0];
         }
 
         let mut authorization = [0u8; 16];
         {
-            let authorization_bytes = try!(input.read_bytes(16));
+            let authorization_bytes = try!(input.read_bytes(16)
+                .map_err(SinglenetHeartbeatError::PacketReadError));
             authorization.copy_from_slice(&authorization_bytes);
         }
 
         let attributes;
         {
-            let attributes_bytes =
-                try!(input.read_bytes((length - Self::header_length()) as usize));
+            let attributes_bytes = try!(input.read_bytes((length - Self::header_length()) as usize)
+                .map_err(SinglenetHeartbeatError::PacketReadError));
             match Vec::<Attribute>::from_bytes(&attributes_bytes) {
                 Ok(attributes_result) => attributes = attributes_result,
-                Err(_) => return Err(ReadBytesError::UnexpectedBytes(attributes_bytes)),
+                Err(_) => return Err(SinglenetHeartbeatError::UnexpectedBytes(attributes_bytes)),
             }
         }
 

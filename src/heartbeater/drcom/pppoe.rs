@@ -1,4 +1,4 @@
-use std::{marker, io};
+use std::{marker, io, result};
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
 
@@ -6,7 +6,17 @@ use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
 use common::reader::{ReadBytesError, ReaderHelper};
-use common::drcom::{DrCOMCommon, DrCOMResponseCommon};
+use common::drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
+
+#[derive(Debug)]
+pub enum DrCOMHeartbeatError {
+    ValidateError(DrCOMValidateError),
+    CRCHashError(CRCHashError),
+    PacketReadError(ReadBytesError),
+    UnexpectedBytes(Vec<u8>),
+}
+
+type PacketResult<T> = result::Result<T, DrCOMHeartbeatError>;
 
 #[derive(Debug)]
 pub enum HeartbeatFlag {
@@ -151,23 +161,25 @@ impl ChallengeRequest {
 }
 
 impl ChallengeResponse {
-    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> Result<Self, ReadBytesError>
+    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_packet(input));
+        try!(Self::validate_packet(input).map_err(DrCOMHeartbeatError::ValidateError));
         // drain unknow bytes
-        try!(input.read_bytes(7));
+        try!(input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError));
 
         let challenge_seed;
         {
-            let challenge_seed_bytes = try!(input.read_bytes(4));
+            let challenge_seed_bytes = try!(input.read_bytes(4)
+                .map_err(DrCOMHeartbeatError::PacketReadError));
             challenge_seed = NativeEndian::read_u32(&challenge_seed_bytes);
         }
 
         let source_ip;
         {
-            let source_ip_bytes = try!(input.read_bytes(4));
+            let source_ip_bytes = try!(input.read_bytes(4)
+                .map_err(DrCOMHeartbeatError::PacketReadError));
             source_ip = Ipv4Addr::from(NetworkEndian::read_u32(&source_ip_bytes));
         }
 

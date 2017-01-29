@@ -4,8 +4,6 @@ use std::io;
 pub enum ReadBytesError {
     // Expect length {}, got {}
     LengthMismatch(usize, usize),
-    // Unexpected bytes
-    UnexpectedBytes(Vec<u8>),
     // IO Error from std library
     IOError(io::Error),
 }

@@ -9,8 +9,8 @@ const MAC_ADDRESS_LEN: usize = 18;
 
 #[derive(Debug)]
 pub enum MACOpenErr {
-    UsernameTooLong,
-    MACAddressError,
+    UsernameTooLong(String),
+    MACAddressError(String),
 }
 
 #[derive(Debug)]
@@ -53,10 +53,10 @@ impl MACOpenPacket {
     }
 
     pub fn as_bytes(&self, hash_key: u32) -> Result<Vec<u8>, MACOpenErr> {
-        try!(self.validate());
-
         let mut macopen_packet = Vec::with_capacity(60);
         {
+            try!(self.validate());
+
             let mut username_bytes = [0; USERNAME_MAX_LEN];
             let mut mac_address_bytes = [0; MAC_ADDRESS_LEN];
             username_bytes[..self.username.len()].clone_from_slice(self.username.as_bytes());
@@ -80,10 +80,10 @@ impl MACOpenPacket {
 
     fn validate(&self) -> Result<(), MACOpenErr> {
         if self.username.len() > USERNAME_MAX_LEN - 1 {
-            return Err(MACOpenErr::UsernameTooLong);
+            return Err(MACOpenErr::UsernameTooLong(self.username.clone()));
         }
         if self.mac_address.len() != MAC_ADDRESS_LEN - 1 {
-            return Err(MACOpenErr::MACAddressError);
+            return Err(MACOpenErr::MACAddressError(self.mac_address.clone()));
         }
         Ok(())
     }

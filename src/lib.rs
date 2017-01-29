@@ -101,7 +101,8 @@ mod tests {
 
     #[test]
     fn test_netkeeper_heartbeat() {
-        use heartbeater::netkeeper::{Frame, Packet, AES128Encrypter};
+        use heartbeater::netkeeper::{Frame, Packet};
+        use crypto::cipher::AES_128_ECB;
 
         let mut frame = Frame::new("HEARTBEAT", None);
         frame.add("USER_NAME", "05802278989@HYXY.XY");
@@ -114,9 +115,9 @@ mod tests {
         frame.add("KEY", "123456");
 
         let packet = Packet::new(30 as u8, 0x0205, frame);
-        let encrypter = AES128Encrypter::new("xlzjhrprotocol3x").unwrap();
+        let encrypter = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
 
-        let packet_bytes = packet.as_bytes(&encrypter);
+        let packet_bytes = packet.as_bytes(&encrypter).unwrap();
         let real_bytes =
             vec![72, 82, 51, 48, 2, 5, 0, 0, 0, 160, 66, 100, 164, 73, 167, 41, 222, 211, 188, 8,
                  14, 110, 252, 246, 121, 119, 79, 18, 254, 193, 72, 163, 54, 136, 248, 60, 221,
@@ -134,9 +135,10 @@ mod tests {
     #[test]
     fn test_netkeeper_heartbeat_parse() {
         use std::io::BufReader;
-        use heartbeater::netkeeper::{Packet, AES128Encrypter};
+        use heartbeater::netkeeper::Packet;
+        use crypto::cipher::AES_128_ECB;
 
-        let encrypter = AES128Encrypter::new("xlzjhrprotocol3x").unwrap();
+        let encrypter = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
 
         let origin_bytes: Vec<u8> =
             vec![72, 82, 51, 48, 2, 5, 0, 0, 0, 160, 66, 100, 164, 73, 167, 41, 222, 211, 188, 8,
@@ -152,7 +154,7 @@ mod tests {
 
         let mut buffer = BufReader::new(&origin_bytes as &[u8]);
         let packet = Packet::from_bytes(&mut buffer, &encrypter, None).unwrap();
-        let packet_bytes = packet.as_bytes(&encrypter);
+        let packet_bytes = packet.as_bytes(&encrypter).unwrap();
 
         assert_eq!(packet_bytes, origin_bytes);
     }

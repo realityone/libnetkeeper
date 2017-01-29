@@ -1,6 +1,12 @@
 use std::io;
 use common::reader::{ReadBytesError, ReaderHelper};
 
+#[derive(Debug)]
+pub enum DrCOMValidateError {
+    CodeMismatch(u8),
+    PacketReadError(ReadBytesError),
+}
+
 pub trait DrCOMCommon {
     fn code() -> u8 {
         7u8
@@ -16,13 +22,13 @@ pub trait DrCOMResponseCommon {
         0x4du8
     }
 
-    fn validate_packet<R>(input: &mut io::BufReader<R>) -> Result<(), ReadBytesError>
+    fn validate_packet<R>(input: &mut io::BufReader<R>) -> Result<(), DrCOMValidateError>
         where R: io::Read
     {
-        let code_bytes = try!(input.read_bytes(1));
+        let code_bytes = try!(input.read_bytes(1).map_err(DrCOMValidateError::PacketReadError));
         let code = code_bytes[0];
         if code == Self::unexpected_code() {
-            return Err(ReadBytesError::UnexpectedBytes(code_bytes));
+            return Err(DrCOMValidateError::CodeMismatch(code));
         }
         Ok(())
     }

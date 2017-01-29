@@ -1,5 +1,5 @@
 #![allow(match_same_arms)]
-use std::str;
+use std::{str, result};
 use std::net::Ipv4Addr;
 
 use rustc_serialize::hex::ToHex;
@@ -13,6 +13,8 @@ pub enum ParseAttributeErr {
     // Expect length {}, got {}
     UnexpectDataLength(usize, usize),
 }
+
+type AttributeResult<T> = result::Result<T, ParseAttributeErr>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
@@ -92,7 +94,7 @@ pub trait AttributeVec {
     fn as_bytes(&self) -> Vec<u8>;
     fn length(&self) -> u16;
 
-    fn from_bytes(bytes: &[u8]) -> Result<Vec<Attribute>, ParseAttributeErr>;
+    fn from_bytes(bytes: &[u8]) -> AttributeResult<Vec<Attribute>>;
 }
 
 impl Attribute {
@@ -342,7 +344,7 @@ impl AttributeVec for Vec<Attribute> {
 
     /// Now only support parse from `AttributeType::TAttribute`'s attributes,
     /// `parent_id` and `value_type_id` will be missed.
-    fn from_bytes(bytes: &[u8]) -> Result<Vec<Attribute>, ParseAttributeErr> {
+    fn from_bytes(bytes: &[u8]) -> AttributeResult<Vec<Attribute>> {
         let mut index = 0;
         let mut attributes: Vec<Attribute> = Vec::new();
         let header_length = Attribute::header_length() as usize;

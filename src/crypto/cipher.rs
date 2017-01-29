@@ -1,11 +1,12 @@
-use rust_crypto::{aes, blockmodes, buffer};
+use rust_crypto::{aes, blockmodes, buffer, symmetriccipher};
 use rust_crypto::buffer::{WriteBuffer, ReadBuffer};
 
 #[derive(Debug)]
 pub enum CipherError {
-    KeyLengthMismatch,
-    EncryptError,
-    DecryptError,
+    // Expect length {}, got {}
+    KeyLengthMismatch(usize, usize),
+    EncryptError(symmetriccipher::SymmetricCipherError),
+    DecryptError(symmetriccipher::SymmetricCipherError),
     BufferOverflow,
 }
 
@@ -23,7 +24,7 @@ pub struct AES_128_ECB {
 impl AES_128_ECB {
     pub fn new(key: &[u8]) -> Result<Self, CipherError> {
         if key.len() != 16 {
-            return Err(CipherError::KeyLengthMismatch);
+            return Err(CipherError::KeyLengthMismatch(16usize, key.len()));
         }
         let mut fixed_key = [0u8; 16];
         fixed_key.clone_from_slice(key);
@@ -40,12 +41,8 @@ impl SimpleCipher for AES_128_ECB {
         let mut output_buff = vec![0u8; plain_bytes.len() + 16];
         let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
 
-        let result = match encrypter.encrypt(&mut input, &mut output, true) {
-            Err(_) => return Err(CipherError::EncryptError),
-            Ok(r) => r,
-        };
-
-        match result {
+        match try!(encrypter.encrypt(&mut input, &mut output, true)
+            .map_err(CipherError::EncryptError)) {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }
@@ -60,12 +57,8 @@ impl SimpleCipher for AES_128_ECB {
         let mut output_buff = vec![0u8; encrypted_bytes.len()];
         let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
 
-        let result = match decrypter.decrypt(&mut input, &mut output, true) {
-            Err(_) => return Err(CipherError::DecryptError),
-            Ok(r) => r,
-        };
-
-        match result {
+        match try!(decrypter.decrypt(&mut input, &mut output, true)
+            .map_err(CipherError::DecryptError)) {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }
