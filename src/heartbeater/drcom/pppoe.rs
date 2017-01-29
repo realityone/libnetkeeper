@@ -13,6 +13,7 @@ pub enum CRCHasherType {
 #[derive(Debug)]
 pub enum CRCHashError {
     ModeNotExist,
+    InputLengthInvalid,
 }
 
 trait CRCHasher {
@@ -94,9 +95,9 @@ fn generate_crc_hash(bytes: &[u8], mode: u8) -> Result<Vec<u8>, CRCHashError> {
     Ok(crc_hasher.hash(bytes))
 }
 
-fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, &'static str> {
+fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, CRCHashError> {
     if bytes.len() % 4 != 0 {
-        return Err("bytes length is invalid");
+        return Err(CRCHashError::InputLengthInvalid);
     }
 
     let mut result = match initial {
