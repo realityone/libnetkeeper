@@ -6,7 +6,7 @@ use byteorder::{NetworkEndian, ByteOrder};
 
 use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
                                          KeepaliveDataCalculator};
-use heartbeater::reader::{ReadBytesError, ReaderHelper};
+use common::reader::{ReadBytesError, ReaderHelper};
 use utils::{current_timestamp, any_to_bytes};
 
 #[derive(Debug, Copy, Clone)]

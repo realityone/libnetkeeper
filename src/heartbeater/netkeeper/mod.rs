@@ -8,7 +8,7 @@ use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
 use utils::{current_timestamp, any_to_bytes};
-use heartbeater::reader::{ReadBytesError, ReaderHelper};
+use common::reader::{ReadBytesError, ReaderHelper};
 
 #[derive(Debug)]
 pub struct Frame {

@@ -4,8 +4,8 @@ use std::net::Ipv4Addr;
 use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
-use heartbeater::reader::{ReadBytesError, ReaderHelper};
-use common::drcom::DrCOMCommon;
+use common::reader::{ReadBytesError, ReaderHelper};
+use common::drcom::{DrCOMCommon, DrCOMResponseCommon};
 
 #[derive(Debug)]
 pub enum CRCHasherType {
@@ -107,6 +107,7 @@ pub struct ChallengeResponse {
 }
 
 impl DrCOMCommon for ChallengeRequest {}
+impl DrCOMResponseCommon for ChallengeResponse {}
 
 impl ChallengeRequest {
     pub fn new(count: Option<u8>) -> Self {
@@ -134,15 +135,8 @@ impl ChallengeResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> Result<Self, ReadBytesError>
         where R: io::Read
     {
-        // validate packet
-        {
-            let code_bytes = try!(input.read_bytes(1));
-            let code = code_bytes[0];
-            if code == 0x4du8 {
-                return Err(ReadBytesError::UnexpectedBytes(code_bytes));
-            }
-        }
-
+        // validate packet and consume 1 byte
+        try!(Self::validate_packet(input));
         // drain unknow bytes
         try!(input.read_bytes(7));
 
