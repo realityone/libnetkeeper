@@ -1,6 +1,7 @@
 use std::marker;
 use byteorder::{NativeEndian, ByteOrder};
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
+use common::drcom::DrCOMCommon;
 
 #[derive(Debug)]
 pub enum CRCHasherType {
@@ -90,6 +91,35 @@ impl CRCHasherBuilder for CRCHasherType {
     }
 }
 
+#[derive(Debug)]
+struct Challenge {
+    count: u8,
+}
+
+impl DrCOMCommon for Challenge {}
+
+impl Challenge {
+    fn new(count: Option<u8>) -> Self {
+        let count = match count {
+            Some(c) => c,
+            None => 1u8,
+        };
+        Challenge { count: count }
+    }
+
+    fn magic_number() -> u32 {
+        65544u32
+    }
+
+    fn as_bytes(&self) -> [u8; 8] {
+        let mut result = [0u8; 8];
+        result[0] = Self::code();
+        result[1] = self.count;
+        NativeEndian::write_u32(&mut result[2..], Self::magic_number());
+        result
+    }
+}
+
 fn generate_crc_hash(bytes: &[u8], mode: u8) -> Result<Vec<u8>, CRCHashError> {
     let crc_hasher = try!(CRCHasherType::from_mode(mode));
     Ok(crc_hasher.hash(bytes))
@@ -126,4 +156,10 @@ fn test_generate_crc_hash() {
 fn test_calculate_drcom_crc32() {
     let crc32 = calculate_drcom_crc32(b"1234567899999999", None).unwrap();
     assert_eq!(crc32, 201589764);
+}
+
+#[test]
+fn test_challenge() {
+    let c = Challenge::new(Some(1));
+    assert_eq!(vec![7, 1, 8, 0, 1, 0, 0, 0], c.as_bytes());
 }

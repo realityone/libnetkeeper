@@ -14,6 +14,7 @@ pub mod dialer;
 pub mod heartbeater;
 mod utils;
 mod crypto;
+mod common;
 
 #[cfg(test)]
 mod tests {
