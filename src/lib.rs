@@ -14,6 +14,7 @@ pub mod dialer;
 pub mod heartbeater;
 mod utils;
 mod crypto;
+mod common;
 
 #[cfg(test)]
 mod tests {
@@ -268,5 +269,24 @@ mod tests {
                  105, 110, 103, 108, 101, 116, 78, 101, 116, 2, 0, 7, 10, 8, 0, 4, 9, 0, 20, 49,
                  48, 58, 100, 100, 58, 98, 49, 58, 100, 53, 58, 57, 53, 58, 99, 97];
         assert_eq!(reg_bytes, real_bytes);
+    }
+
+    #[test]
+    fn test_drcom_pppoe_challenge() {
+        use std::io::BufReader;
+        use std::net::Ipv4Addr;
+        use std::str::FromStr;
+        use heartbeater::drcom::pppoe::{ChallengeRequest, ChallengeResponse};
+
+        let c = ChallengeRequest::new(Some(1));
+        assert_eq!(vec![7, 1, 8, 0, 1, 0, 0, 0], c.as_bytes());
+
+        let fake_response: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                                          16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+                                          30, 31];
+        let mut buffer = BufReader::new(&fake_response as &[u8]);
+        let cr = ChallengeResponse::from_bytes(&mut buffer).unwrap();
+        assert_eq!(cr.challenge_seed, 185207048);
+        assert_eq!(cr.source_ip, Ipv4Addr::from_str("12.13.14.15").unwrap());
     }
 }

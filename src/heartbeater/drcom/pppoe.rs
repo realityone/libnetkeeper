@@ -1,6 +1,11 @@
-use std::marker;
-use byteorder::{NativeEndian, ByteOrder};
+use std::{marker, io};
+use std::net::Ipv4Addr;
+
+use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
+
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
+use heartbeater::reader::{ReadBytesError, ReaderHelper};
+use common::drcom::DrCOMCommon;
 
 #[derive(Debug)]
 pub enum CRCHasherType {
@@ -87,6 +92,76 @@ impl CRCHasherBuilder for CRCHasherType {
 
             _ => Err(CRCHashError::ModeNotExist),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ChallengeRequest {
+    count: u8,
+}
+
+#[derive(Debug)]
+pub struct ChallengeResponse {
+    pub challenge_seed: u32,
+    pub source_ip: Ipv4Addr,
+}
+
+impl DrCOMCommon for ChallengeRequest {}
+
+impl ChallengeRequest {
+    pub fn new(count: Option<u8>) -> Self {
+        let count = match count {
+            Some(c) => c,
+            None => 1u8,
+        };
+        ChallengeRequest { count: count }
+    }
+
+    fn magic_number() -> u32 {
+        65544u32
+    }
+
+    pub fn as_bytes(&self) -> [u8; 8] {
+        let mut result = [0u8; 8];
+        result[0] = Self::code();
+        result[1] = self.count;
+        NativeEndian::write_u32(&mut result[2..], Self::magic_number());
+        result
+    }
+}
+
+impl ChallengeResponse {
+    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> Result<Self, ReadBytesError>
+        where R: io::Read
+    {
+        // validate packet
+        {
+            let code_bytes = try!(input.read_bytes(1));
+            let code = code_bytes[0];
+            if code == 0x4du8 {
+                return Err(ReadBytesError::UnexpectedBytes(code_bytes));
+            }
+        }
+
+        // drain unknow bytes
+        try!(input.read_bytes(7));
+
+        let challenge_seed;
+        {
+            let challenge_seed_bytes = try!(input.read_bytes(4));
+            challenge_seed = NativeEndian::read_u32(&challenge_seed_bytes);
+        }
+
+        let source_ip;
+        {
+            let source_ip_bytes = try!(input.read_bytes(4));
+            source_ip = Ipv4Addr::from(NetworkEndian::read_u32(&source_ip_bytes));
+        }
+
+        Ok(ChallengeResponse {
+            challenge_seed: challenge_seed,
+            source_ip: source_ip,
+        })
     }
 }
 
