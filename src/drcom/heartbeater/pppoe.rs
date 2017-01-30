@@ -25,6 +25,12 @@ pub enum HeartbeatFlag {
 }
 
 #[derive(Debug)]
+pub enum KeepAliveFlag {
+    First,
+    NotFirst,
+}
+
+#[derive(Debug)]
 pub enum CRCHasherType {
     NONE,
     MD5,
@@ -60,6 +66,15 @@ pub struct HeartbeatRequest {
     source_ip: Ipv4Addr,
     flag: HeartbeatFlag,
     challenge_seed: u32,
+}
+
+#[derive(Debug)]
+pub struct KeepAlive {
+    sequence: u8,
+    type_id: u8,
+    source_ip: Ipv4Addr,
+    flag: KeepAliveFlag,
+    keep_alive_seed: u32,
 }
 
 trait CRCHasher {
@@ -199,6 +214,15 @@ impl HeartbeatFlag {
     }
 }
 
+impl KeepAliveFlag {
+    fn as_u32(&self) -> u32 {
+        match *self {
+            KeepAliveFlag::First => 0x122f270fu32,
+            KeepAliveFlag::NotFirst => 0x122f02dcu32, 
+        }
+    }
+}
+
 impl DrCOMCommon for HeartbeatRequest {}
 
 impl HeartbeatRequest {
@@ -252,16 +276,12 @@ impl HeartbeatRequest {
             header_bytes.push(self.sequence);
 
             let mut packet_length_bytes = [0u8; 2];
-            {
-                NativeEndian::write_u16(&mut packet_length_bytes, Self::packet_length() as u16);
-            }
+            NativeEndian::write_u16(&mut packet_length_bytes, Self::packet_length() as u16);
             header_bytes.extend_from_slice(&packet_length_bytes);
         }
 
         let mut challenge_seed_bytes = [0u8; 4];
-        {
-            NativeEndian::write_u32(&mut challenge_seed_bytes, self.challenge_seed);
-        }
+        NativeEndian::write_u32(&mut challenge_seed_bytes, self.challenge_seed);
 
         let mut content_bytes = Vec::with_capacity(Self::content_length());
         {
@@ -271,9 +291,7 @@ impl HeartbeatRequest {
             content_bytes.extend_from_slice(&self.source_ip.octets());
 
             let mut flag_bytes = [0u8; 4];
-            {
-                NativeEndian::write_u32(&mut flag_bytes, self.flag.as_u32());
-            }
+            NativeEndian::write_u32(&mut flag_bytes, self.flag.as_u32());
             content_bytes.extend_from_slice(&flag_bytes);
             content_bytes.extend_from_slice(&challenge_seed_bytes);
         }
@@ -302,6 +320,96 @@ impl HeartbeatRequest {
         packet_bytes.extend(header_bytes);
         packet_bytes.extend(content_bytes);
         packet_bytes.extend(footer_bytes);
+        packet_bytes
+    }
+}
+
+impl DrCOMCommon for KeepAlive {}
+
+impl KeepAlive {
+    pub fn new(sequence: u8,
+               flag: KeepAliveFlag,
+               type_id: Option<u8>,
+               source_ip: Option<Ipv4Addr>,
+               keep_alive_seed: Option<u32>)
+               -> Self {
+        let type_id = type_id.unwrap_or(1u8);
+        let source_ip = source_ip.unwrap_or_else(|| Ipv4Addr::from(0x0));
+        let keep_alive_seed = keep_alive_seed.unwrap_or_default();
+        KeepAlive {
+            sequence: sequence,
+            type_id: type_id,
+            source_ip: source_ip,
+            flag: flag,
+            keep_alive_seed: keep_alive_seed,
+        }
+    }
+
+    fn packet_length() -> usize {
+        1 + // code
+        1 + // sequence
+        2 + // packet length
+        1 + // uid length
+        1 + // type id
+        4 + // keep alive flag
+        6 + // padding?
+        4 + // keep alive seed
+        8 + // crc
+        4 + // source ip
+        8 // padding?
+    }
+
+    fn uid_length() -> usize {
+        1 + // type id
+        4 + // keep alive flag
+        6 // padding?
+    }
+
+    fn footer_length() -> usize {
+        8 + // crc
+        4 + // source ip
+        8 // padding?
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut packet_bytes = Vec::with_capacity(Self::packet_length());
+
+        packet_bytes.push(Self::code());
+        packet_bytes.push(self.sequence);
+
+        let mut packet_length_bytes = [0u8; 2];
+        NativeEndian::write_u16(&mut packet_length_bytes, Self::packet_length() as u16);
+        packet_bytes.extend_from_slice(&packet_length_bytes);
+
+        packet_bytes.push(Self::uid_length() as u8);
+        packet_bytes.push(self.type_id);
+
+        let mut keep_alive_flag_bytes = [0u8; 4];
+        NativeEndian::write_u32(&mut keep_alive_flag_bytes, self.flag.as_u32());
+        packet_bytes.extend_from_slice(&keep_alive_flag_bytes);
+
+        // padding?
+        packet_bytes.extend_from_slice(&[0u8; 6]);
+
+        let mut keep_alive_seed_bytes = [0u8; 4];
+        NativeEndian::write_u32(&mut keep_alive_seed_bytes, self.keep_alive_seed);
+        packet_bytes.extend_from_slice(&keep_alive_seed_bytes);
+
+        let footer_bytes = match self.type_id {
+            3 => {
+                let mut result = Vec::with_capacity(Self::footer_length());
+                let hash_mode = CRCHasherType::from_mode((self.keep_alive_seed & 3) as u8).unwrap();
+                let crc_hash_bytes = hash_mode.hash(&packet_bytes);
+                result.extend_from_slice(&crc_hash_bytes);
+
+                result.extend_from_slice(&self.source_ip.octets());
+                result.extend_from_slice(&[0u8; 8]);
+                result
+            }
+            _ => vec![0u8; Self::footer_length()],
+        };
+        packet_bytes.extend(footer_bytes);
+
         packet_bytes
     }
 }

@@ -343,4 +343,33 @@ mod tests {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0]);
     }
+
+    #[test]
+    fn test_drcom_pppoe_keep_alive() {
+        use std::net::Ipv4Addr;
+        use std::str::FromStr;
+        use drcom::heartbeater::pppoe::{KeepAlive, KeepAliveFlag};
+
+        let ka1 = KeepAlive::new(1u8, KeepAliveFlag::First, None, None, None);
+        let ka2 = KeepAlive::new(1u8, KeepAliveFlag::First, Some(3), None, None);
+        let ka3 = KeepAlive::new(1u8, KeepAliveFlag::NotFirst, Some(3), None, None);
+        let ka4 = KeepAlive::new(1u8,
+                                 KeepAliveFlag::NotFirst,
+                                 Some(3),
+                                 Some(Ipv4Addr::from_str("1.2.3.4").unwrap()),
+                                 Some(0x22221111u32));
+
+        assert_eq!(ka1.as_bytes(),
+                   vec![7, 1, 40, 0, 11, 1, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(ka2.as_bytes(),
+                   vec![7, 1, 40, 0, 11, 3, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 199,
+                        47, 49, 1, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(ka3.as_bytes(),
+                   vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 199,
+                        47, 49, 1, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(ka4.as_bytes(),
+                   vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 17, 17, 34, 34, 82,
+                        139, 161, 42, 71, 175, 94, 167, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]);
+    }
 }
