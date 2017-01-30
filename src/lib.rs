@@ -302,23 +302,26 @@ mod tests {
         use std::str::FromStr;
         use drcom::heartbeater::pppoe::{HeartbeatRequest, HeartbeatFlag};
 
+        let flag_first = HeartbeatFlag::First;
+        let flag_not_first = HeartbeatFlag::NotFirst;
+
         let hr1 = HeartbeatRequest::new(1,
                                         Ipv4Addr::from_str("1.2.3.4").unwrap(),
-                                        HeartbeatFlag::First,
+                                        &flag_first,
                                         0x04030201u32,
                                         None,
                                         None,
                                         None);
         let hr2 = HeartbeatRequest::new(1,
                                         Ipv4Addr::from_str("1.2.3.4").unwrap(),
-                                        HeartbeatFlag::NotFirst,
+                                        &flag_not_first,
                                         0x04030201u32,
                                         None,
                                         None,
                                         None);
         let hr3 = HeartbeatRequest::new(1,
                                         Ipv4Addr::from_str("1.2.3.4").unwrap(),
-                                        HeartbeatFlag::NotFirst,
+                                        &flag_not_first,
                                         0x04030200u32,
                                         None,
                                         None,
@@ -352,11 +355,14 @@ mod tests {
         use drcom::heartbeater::pppoe::{KeepAliveRequest, KeepAliveResponse,
                                         KeepAliveResponseType, KeepAliveRequestFlag};
 
-        let ka1 = KeepAliveRequest::new(1u8, KeepAliveRequestFlag::First, None, None, None);
-        let ka2 = KeepAliveRequest::new(1u8, KeepAliveRequestFlag::First, Some(3), None, None);
-        let ka3 = KeepAliveRequest::new(1u8, KeepAliveRequestFlag::NotFirst, Some(3), None, None);
+        let flag_first = KeepAliveRequestFlag::First;
+        let flag_not_first = KeepAliveRequestFlag::NotFirst;
+
+        let ka1 = KeepAliveRequest::new(1u8, &flag_first, None, None, None);
+        let ka2 = KeepAliveRequest::new(1u8, &flag_first, Some(3), None, None);
+        let ka3 = KeepAliveRequest::new(1u8, &flag_not_first, Some(3), None, None);
         let ka4 = KeepAliveRequest::new(1u8,
-                                        KeepAliveRequestFlag::NotFirst,
+                                        &flag_not_first,
                                         Some(3),
                                         Some(Ipv4Addr::from_str("1.2.3.4").unwrap()),
                                         Some(0x22221111u32));

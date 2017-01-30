@@ -1,6 +1,7 @@
 use std::{marker, io, result};
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
+use std::fmt::Debug;
 
 use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
 
@@ -65,22 +66,22 @@ pub struct ChallengeResponse {
 }
 
 #[derive(Debug)]
-pub struct HeartbeatRequest {
+pub struct HeartbeatRequest<'a> {
     sequence: u8,
     type_id: u8,
     uid_length: u8,
     mac_address: [u8; 6],
     source_ip: Ipv4Addr,
-    flag: HeartbeatFlag,
+    flag: &'a (Flag + 'a),
     challenge_seed: u32,
 }
 
 #[derive(Debug)]
-pub struct KeepAliveRequest {
+pub struct KeepAliveRequest<'a> {
     sequence: u8,
     type_id: u8,
     source_ip: Ipv4Addr,
-    flag: KeepAliveRequestFlag,
+    flag: &'a (Flag + 'a),
     keep_alive_seed: u32,
 }
 
@@ -118,6 +119,9 @@ trait CRCHasherBuilder {
     fn from_mode(mode: u8) -> Result<Self, CRCHashError> where Self: marker::Sized;
 }
 
+pub trait Flag: Debug {
+    fn as_u32(&self) -> u32;
+}
 
 impl Hasher for NoneHasher {
     #[allow(unused_variables)]
@@ -217,7 +221,7 @@ impl ChallengeResponse {
     }
 }
 
-impl HeartbeatFlag {
+impl Flag for HeartbeatFlag {
     fn as_u32(&self) -> u32 {
         match *self {
             HeartbeatFlag::First => 0x2a006200u32,
@@ -226,7 +230,7 @@ impl HeartbeatFlag {
     }
 }
 
-impl KeepAliveRequestFlag {
+impl Flag for KeepAliveRequestFlag {
     fn as_u32(&self) -> u32 {
         match *self {
             KeepAliveRequestFlag::First => 0x122f270fu32,
@@ -235,17 +239,18 @@ impl KeepAliveRequestFlag {
     }
 }
 
-impl DrCOMCommon for HeartbeatRequest {}
-
-impl HeartbeatRequest {
-    pub fn new(sequence: u8,
-               source_ip: Ipv4Addr,
-               flag: HeartbeatFlag,
-               challenge_seed: u32,
-               type_id: Option<u8>,
-               uid_length: Option<u8>,
-               mac_address: Option<[u8; 6]>)
-               -> Self {
+impl<'a> DrCOMCommon for HeartbeatRequest<'a> {}
+impl<'a> HeartbeatRequest<'a> {
+    pub fn new<F>(sequence: u8,
+                  source_ip: Ipv4Addr,
+                  flag: &'a F,
+                  challenge_seed: u32,
+                  type_id: Option<u8>,
+                  uid_length: Option<u8>,
+                  mac_address: Option<[u8; 6]>)
+                  -> Self
+        where F: Flag
+    {
         HeartbeatRequest {
             sequence: sequence,
             type_id: type_id.unwrap_or(3u8),
@@ -336,15 +341,16 @@ impl HeartbeatRequest {
     }
 }
 
-impl DrCOMCommon for KeepAliveRequest {}
-
-impl KeepAliveRequest {
-    pub fn new(sequence: u8,
-               flag: KeepAliveRequestFlag,
-               type_id: Option<u8>,
-               source_ip: Option<Ipv4Addr>,
-               keep_alive_seed: Option<u32>)
-               -> Self {
+impl<'a> DrCOMCommon for KeepAliveRequest<'a> {}
+impl<'a> KeepAliveRequest<'a> {
+    pub fn new<F>(sequence: u8,
+                  flag: &'a F,
+                  type_id: Option<u8>,
+                  source_ip: Option<Ipv4Addr>,
+                  keep_alive_seed: Option<u32>)
+                  -> Self
+        where F: Flag
+    {
         let type_id = type_id.unwrap_or(1u8);
         let source_ip = source_ip.unwrap_or_else(|| Ipv4Addr::from(0x0));
         let keep_alive_seed = keep_alive_seed.unwrap_or_default();
@@ -427,7 +433,6 @@ impl KeepAliveRequest {
 }
 
 impl DrCOMResponseCommon for KeepAliveResponse {}
-
 impl KeepAliveResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
         where R: io::Read
