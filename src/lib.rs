@@ -282,7 +282,7 @@ mod tests {
         use std::io::BufReader;
         use std::net::Ipv4Addr;
         use std::str::FromStr;
-        use drcom::heartbeater::pppoe::{ChallengeRequest, ChallengeResponse};
+        use drcom::pppoe::heartbeater::{ChallengeRequest, ChallengeResponse};
 
         let c = ChallengeRequest::new(Some(1));
         assert_eq!(vec![7, 1, 8, 0, 1, 0, 0, 0], c.as_bytes());
@@ -300,7 +300,7 @@ mod tests {
     fn test_drcom_pppoe_heartbeat() {
         use std::net::Ipv4Addr;
         use std::str::FromStr;
-        use drcom::heartbeater::pppoe::{HeartbeatRequest, HeartbeatFlag};
+        use drcom::pppoe::heartbeater::{HeartbeatRequest, HeartbeatFlag};
 
         let flag_first = HeartbeatFlag::First;
         let flag_not_first = HeartbeatFlag::NotFirst;
@@ -352,7 +352,7 @@ mod tests {
         use std::net::Ipv4Addr;
         use std::io::BufReader;
         use std::str::FromStr;
-        use drcom::heartbeater::pppoe::{KeepAliveRequest, KeepAliveResponse,
+        use drcom::pppoe::heartbeater::{KeepAliveRequest, KeepAliveResponse,
                                         KeepAliveResponseType, KeepAliveRequestFlag};
 
         let flag_first = KeepAliveRequestFlag::First;

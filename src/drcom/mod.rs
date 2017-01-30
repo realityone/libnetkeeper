@@ -1,7 +1,7 @@
 use std::io;
 use common::reader::{ReadBytesError, ReaderHelper};
 
-pub mod heartbeater;
+pub mod pppoe;
 
 #[derive(Debug)]
 pub enum DrCOMValidateError {
