@@ -347,17 +347,19 @@ mod tests {
     #[test]
     fn test_drcom_pppoe_keep_alive() {
         use std::net::Ipv4Addr;
+        use std::io::BufReader;
         use std::str::FromStr;
-        use drcom::heartbeater::pppoe::{KeepAlive, KeepAliveFlag};
+        use drcom::heartbeater::pppoe::{KeepAliveRequest, KeepAliveResponse,
+                                        KeepAliveResponseType, KeepAliveRequestFlag};
 
-        let ka1 = KeepAlive::new(1u8, KeepAliveFlag::First, None, None, None);
-        let ka2 = KeepAlive::new(1u8, KeepAliveFlag::First, Some(3), None, None);
-        let ka3 = KeepAlive::new(1u8, KeepAliveFlag::NotFirst, Some(3), None, None);
-        let ka4 = KeepAlive::new(1u8,
-                                 KeepAliveFlag::NotFirst,
-                                 Some(3),
-                                 Some(Ipv4Addr::from_str("1.2.3.4").unwrap()),
-                                 Some(0x22221111u32));
+        let ka1 = KeepAliveRequest::new(1u8, KeepAliveRequestFlag::First, None, None, None);
+        let ka2 = KeepAliveRequest::new(1u8, KeepAliveRequestFlag::First, Some(3), None, None);
+        let ka3 = KeepAliveRequest::new(1u8, KeepAliveRequestFlag::NotFirst, Some(3), None, None);
+        let ka4 = KeepAliveRequest::new(1u8,
+                                        KeepAliveRequestFlag::NotFirst,
+                                        Some(3),
+                                        Some(Ipv4Addr::from_str("1.2.3.4").unwrap()),
+                                        Some(0x22221111u32));
 
         assert_eq!(ka1.as_bytes(),
                    vec![7, 1, 40, 0, 11, 1, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -371,5 +373,21 @@ mod tests {
         assert_eq!(ka4.as_bytes(),
                    vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 17, 17, 34, 34, 82,
                         139, 161, 42, 71, 175, 94, 167, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+        let fake_response1: Vec<u8> = vec![7, 0, 0x28];
+        let mut buffer1 = BufReader::new(&fake_response1 as &[u8]);
+        let kar1 = KeepAliveResponse::from_bytes(&mut buffer1).unwrap();
+        assert_eq!(kar1.response_type, KeepAliveResponseType::KeepAliveSucceed);
+
+        let fake_response2: Vec<u8> = vec![7, 0, 0x10];
+        let mut buffer2 = BufReader::new(&fake_response2 as &[u8]);
+        let kar2 = KeepAliveResponse::from_bytes(&mut buffer2).unwrap();
+        assert_eq!(kar2.response_type, KeepAliveResponseType::FileResponse);
+
+        let fake_response3: Vec<u8> = vec![7, 0, 0x11];
+        let mut buffer3 = BufReader::new(&fake_response3 as &[u8]);
+        let kar3 = KeepAliveResponse::from_bytes(&mut buffer3).unwrap();
+        assert_eq!(kar3.response_type,
+                   KeepAliveResponseType::UnrecognizedResponse);
     }
 }

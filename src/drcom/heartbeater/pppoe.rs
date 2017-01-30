@@ -25,9 +25,16 @@ pub enum HeartbeatFlag {
 }
 
 #[derive(Debug)]
-pub enum KeepAliveFlag {
+pub enum KeepAliveRequestFlag {
     First,
     NotFirst,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum KeepAliveResponseType {
+    KeepAliveSucceed,
+    FileResponse,
+    UnrecognizedResponse,
 }
 
 #[derive(Debug)]
@@ -69,12 +76,17 @@ pub struct HeartbeatRequest {
 }
 
 #[derive(Debug)]
-pub struct KeepAlive {
+pub struct KeepAliveRequest {
     sequence: u8,
     type_id: u8,
     source_ip: Ipv4Addr,
-    flag: KeepAliveFlag,
+    flag: KeepAliveRequestFlag,
     keep_alive_seed: u32,
+}
+
+#[derive(Debug)]
+pub struct KeepAliveResponse {
+    pub response_type: KeepAliveResponseType,
 }
 
 trait CRCHasher {
@@ -214,11 +226,11 @@ impl HeartbeatFlag {
     }
 }
 
-impl KeepAliveFlag {
+impl KeepAliveRequestFlag {
     fn as_u32(&self) -> u32 {
         match *self {
-            KeepAliveFlag::First => 0x122f270fu32,
-            KeepAliveFlag::NotFirst => 0x122f02dcu32, 
+            KeepAliveRequestFlag::First => 0x122f270fu32,
+            KeepAliveRequestFlag::NotFirst => 0x122f02dcu32, 
         }
     }
 }
@@ -324,11 +336,11 @@ impl HeartbeatRequest {
     }
 }
 
-impl DrCOMCommon for KeepAlive {}
+impl DrCOMCommon for KeepAliveRequest {}
 
-impl KeepAlive {
+impl KeepAliveRequest {
     pub fn new(sequence: u8,
-               flag: KeepAliveFlag,
+               flag: KeepAliveRequestFlag,
                type_id: Option<u8>,
                source_ip: Option<Ipv4Addr>,
                keep_alive_seed: Option<u32>)
@@ -336,7 +348,7 @@ impl KeepAlive {
         let type_id = type_id.unwrap_or(1u8);
         let source_ip = source_ip.unwrap_or_else(|| Ipv4Addr::from(0x0));
         let keep_alive_seed = keep_alive_seed.unwrap_or_default();
-        KeepAlive {
+        KeepAliveRequest {
             sequence: sequence,
             type_id: type_id,
             source_ip: source_ip,
@@ -413,6 +425,34 @@ impl KeepAlive {
         packet_bytes
     }
 }
+
+impl DrCOMResponseCommon for KeepAliveResponse {}
+
+impl KeepAliveResponse {
+    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
+        where R: io::Read
+    {
+        // validate packet and consume 1 byte
+        try!(Self::validate_stream(input).map_err(DrCOMHeartbeatError::ValidateError));
+        // drain unknow bytes
+        try!(input.read_bytes(1).map_err(DrCOMHeartbeatError::PacketReadError));
+
+        let type_flag_byte;
+        {
+            type_flag_byte = try!(input.read_bytes(1)
+                .map_err(DrCOMHeartbeatError::PacketReadError))[0];
+        }
+
+        let response_type = match type_flag_byte {
+            0x28 => KeepAliveResponseType::KeepAliveSucceed,
+            0x10 => KeepAliveResponseType::FileResponse,
+            _ => KeepAliveResponseType::UnrecognizedResponse,
+        };
+
+        Ok(KeepAliveResponse { response_type: response_type })
+    }
+}
+
 
 fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, CRCHashError> {
     if bytes.len() % 4 != 0 {
