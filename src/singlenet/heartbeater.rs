@@ -4,10 +4,10 @@ use std::net::Ipv4Addr;
 use crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{NetworkEndian, ByteOrder};
 
-use heartbeater::singlenet::attributes::{Attribute, AttributeVec, AttributeType,
-                                         KeepaliveDataCalculator, ParseAttributesError};
+use singlenet::attributes::{Attribute, AttributeVec, AttributeType, KeepaliveDataCalculator,
+                            ParseAttributesError};
 use common::reader::{ReadBytesError, ReaderHelper};
-use utils::current_timestamp;
+use common::utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum SinglenetHeartbeatError {

@@ -6,7 +6,7 @@ use crypto::hash::{HasherBuilder, HasherType};
 use linked_hash_map::LinkedHashMap;
 use byteorder::{NetworkEndian, ByteOrder};
 
-use utils::current_timestamp;
+use common::utils::current_timestamp;
 use common::reader::{ReadBytesError, ReaderHelper};
 
 #[derive(Debug)]

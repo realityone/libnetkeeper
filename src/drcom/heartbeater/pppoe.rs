@@ -6,7 +6,7 @@ use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
 use common::reader::{ReadBytesError, ReaderHelper};
-use common::drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
+use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
 
 #[derive(Debug)]
 pub enum DrCOMHeartbeatError {

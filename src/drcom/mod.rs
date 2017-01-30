@@ -1,6 +1,8 @@
 use std::io;
 use common::reader::{ReadBytesError, ReaderHelper};
 
+pub mod heartbeater;
+
 #[derive(Debug)]
 pub enum DrCOMValidateError {
     CodeMismatch(u8),

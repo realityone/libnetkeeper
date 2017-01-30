@@ -2,8 +2,8 @@ use rustc_serialize::hex::ToHex;
 use byteorder::{NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, HasherType};
-use utils::current_timestamp;
-use dialer::Dialer;
+use common::utils::current_timestamp;
+use common::dialer::Dialer;
 
 #[derive(Debug)]
 pub enum GhcaDialerError {

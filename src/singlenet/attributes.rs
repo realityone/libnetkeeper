@@ -3,10 +3,10 @@ use std::{str, result};
 use std::net::Ipv4Addr;
 
 use rustc_serialize::hex::ToHex;
-use crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{NetworkEndian, ByteOrder};
 
-use utils::current_timestamp;
+use crypto::hash::{HasherBuilder, HasherType};
+use common::utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum ParseAttributesError {

@@ -10,19 +10,23 @@ extern crate md4;
 extern crate time;
 extern crate byteorder;
 
-pub mod dialer;
-pub mod heartbeater;
-mod utils;
+pub mod drcom;
+pub mod netkeeper;
+pub mod ghca;
+pub mod ipclient;
+pub mod singlenet;
+pub mod srun3k;
+
 mod crypto;
 mod common;
 
 #[cfg(test)]
 mod tests {
-    use dialer::Dialer;
+    use common::dialer::Dialer;
 
     #[test]
     fn test_netkeeper_username_encrypt() {
-        use dialer::netkeeper::{NetkeeperDialer, Configuration};
+        use netkeeper::dialer::{NetkeeperDialer, Configuration};
         let dialer = NetkeeperDialer::load_from_config(Configuration::Zhejiang);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
         assert_eq!(encrypted, "\r\n:R#(P 5005802278989@HYXY.XY");
@@ -30,7 +34,7 @@ mod tests {
 
     #[test]
     fn test_singlenet_username_encrypt() {
-        use dialer::singlenet::{SingleNetDialer, Configuration};
+        use singlenet::dialer::{SingleNetDialer, Configuration};
         let dialer = SingleNetDialer::load_from_config(Configuration::Hainan);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
         assert_eq!(encrypted, "~LL_k6ecvpj2mrjA_05802278989@HYXY.XY");
@@ -38,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_ghca_username_encrypt() {
-        use dialer::ghca::{GhcaDialer, Configuration};
+        use ghca::dialer::{GhcaDialer, Configuration};
         let dialer = GhcaDialer::load_from_config(Configuration::SichuanMac);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY",
                              "123456",
@@ -63,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_srun3k_v20_username_encrypt() {
-        use dialer::srun3k::{Srun3kDialer, Configuration};
+        use srun3k::dialer::{Srun3kDialer, Configuration};
 
         let username = "admin";
         let dialer = Srun3kDialer::load_from_config(Configuration::TaLiMu);
@@ -75,7 +79,7 @@ mod tests {
     fn test_ipclient_macopener_packet() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use dialer::ipclient::{MACOpenPacket, ISPCode, Configuration};
+        use ipclient::dialer::{MACOpenPacket, ISPCode, Configuration};
 
         let packet = MACOpenPacket::new("a",
                                         Ipv4Addr::from_str("172.16.1.1").unwrap(),
@@ -101,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_netkeeper_heartbeat() {
-        use heartbeater::netkeeper::{Frame, Packet};
+        use netkeeper::heartbeater::{Frame, Packet};
         use crypto::cipher::AES_128_ECB;
 
         let mut frame = Frame::new("HEARTBEAT", None);
@@ -135,7 +139,7 @@ mod tests {
     #[test]
     fn test_netkeeper_heartbeat_parse() {
         use std::io::BufReader;
-        use heartbeater::netkeeper::Packet;
+        use netkeeper::heartbeater::Packet;
         use crypto::cipher::AES_128_ECB;
 
         let encrypter = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
@@ -164,7 +168,7 @@ mod tests {
         use std::io::BufReader;
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{PacketFactoryWin, PacketAuthenticator, Packet};
+        use singlenet::heartbeater::{PacketFactoryWin, PacketAuthenticator, Packet};
 
         let ka1 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
                                                       Ipv4Addr::from_str("10.0.0.1").unwrap(),
@@ -207,7 +211,7 @@ mod tests {
     fn test_register_request() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
+        use singlenet::heartbeater::{PacketFactoryMac, PacketAuthenticator};
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
         let reg = PacketFactoryMac::register_request("05802278989@HYXY.XY",
@@ -234,7 +238,7 @@ mod tests {
     fn test_real_time_bubble_request() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
+        use singlenet::heartbeater::{PacketFactoryMac, PacketAuthenticator};
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
         let reg = PacketFactoryMac::real_time_bubble_request("05802278989@HYXY.XY",
@@ -256,7 +260,7 @@ mod tests {
     fn test_bubble_request() {
         use std::str::FromStr;
         use std::net::Ipv4Addr;
-        use heartbeater::singlenet::packets::{PacketFactoryMac, PacketAuthenticator};
+        use singlenet::heartbeater::{PacketFactoryMac, PacketAuthenticator};
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
         let reg = PacketFactoryMac::bubble_request("05802278989@HYXY.XY",
@@ -278,7 +282,7 @@ mod tests {
         use std::io::BufReader;
         use std::net::Ipv4Addr;
         use std::str::FromStr;
-        use heartbeater::drcom::pppoe::{ChallengeRequest, ChallengeResponse};
+        use drcom::heartbeater::pppoe::{ChallengeRequest, ChallengeResponse};
 
         let c = ChallengeRequest::new(Some(1));
         assert_eq!(vec![7, 1, 8, 0, 1, 0, 0, 0], c.as_bytes());
@@ -296,7 +300,7 @@ mod tests {
     fn test_drcom_pppoe_heartbeat() {
         use std::net::Ipv4Addr;
         use std::str::FromStr;
-        use heartbeater::drcom::pppoe::{HeartbeatRequest, HeartbeatFlag};
+        use drcom::heartbeater::pppoe::{HeartbeatRequest, HeartbeatFlag};
 
         let hr1 = HeartbeatRequest::new(1,
                                         Ipv4Addr::from_str("1.2.3.4").unwrap(),

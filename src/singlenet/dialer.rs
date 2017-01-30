@@ -3,8 +3,8 @@ use std::slice;
 
 use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
 
-use dialer::Dialer;
-use utils::current_timestamp;
+use common::dialer::Dialer;
+use common::utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum Configuration {

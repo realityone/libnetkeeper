@@ -1,4 +1,4 @@
-use dialer::Dialer;
+use common::dialer::Dialer;
 
 #[derive(Debug)]
 pub enum Configuration {
