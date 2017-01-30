@@ -10,6 +10,7 @@ extern crate md4;
 extern crate time;
 extern crate byteorder;
 
+pub mod common;
 pub mod drcom;
 pub mod netkeeper;
 pub mod ghca;
@@ -18,7 +19,6 @@ pub mod singlenet;
 pub mod srun3k;
 
 mod crypto;
-mod common;
 
 #[cfg(test)]
 mod tests {
