@@ -182,18 +182,20 @@ impl ChallengeRequest {
         ChallengeRequest { sequence: sequence.unwrap_or(1u8) }
     }
 
+    #[inline]
     fn magic_number() -> u32 {
         65544u32
     }
 
+    #[inline]
     fn header_length() -> usize {
         1 + // code
         1 // sequence
     }
 
+    #[inline]
     fn packet_length() -> usize {
-        1 + // code
-        1 + // sequence
+        Self::header_length() +
         4 + // magic number
         2 // padding?
     }
@@ -281,12 +283,14 @@ impl<'a> HeartbeatRequest<'a> {
         }
     }
 
+    #[inline]
     fn header_length() -> usize {
         1 + // code 
         1 + // sequence
         2 // packet_length
     }
 
+    #[inline]
     fn content_length() -> usize {
         1 + // type_id
         1 + // uid_length
@@ -296,11 +300,13 @@ impl<'a> HeartbeatRequest<'a> {
         4 // challenge_seed
     }
 
+    #[inline]
     fn footer_length() -> usize {
         8 + // crc_hash
         16 * 4 // padding?
     }
 
+    #[inline]
     fn packet_length() -> usize {
         Self::header_length() + Self::content_length() + Self::footer_length()
     }
@@ -377,26 +383,25 @@ impl<'a> KeepAliveRequest<'a> {
         }
     }
 
+    #[inline]
     fn packet_length() -> usize {
         1 + // code
         1 + // sequence
         2 + // packet length
         1 + // uid length
-        1 + // type id
-        4 + // keep alive flag
-        6 + // padding?
+        Self::uid_length() +
         4 + // keep alive seed
-        8 + // crc
-        4 + // source ip
-        8 // padding?
+        Self::footer_length()
     }
 
+    #[inline]
     fn uid_length() -> usize {
         1 + // type id
         4 + // keep alive flag
         6 // padding?
     }
 
+    #[inline]
     fn footer_length() -> usize {
         8 + // crc
         4 + // source ip
