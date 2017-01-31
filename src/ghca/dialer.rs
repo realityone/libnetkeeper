@@ -1,9 +1,9 @@
 use rustc_serialize::hex::ToHex;
-use byteorder::{NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, HasherType};
 use common::utils::current_timestamp;
 use common::dialer::Dialer;
+use common::bytes::BytesAbleNum;
 
 #[derive(Debug)]
 pub enum GhcaDialerError {
@@ -75,10 +75,7 @@ impl GhcaDialer {
             let pwd_prefix = &password[..prefix_len as usize];
             let pwd_suffix = &password[prefix_len as usize..pwd_len as usize];
 
-            let mut sec_timestamp_bytes = [0u8; 4];
-            NetworkEndian::write_u32(&mut sec_timestamp_bytes, sec_timestamp);
-
-            md5.update(&sec_timestamp_bytes);
+            md5.update(&sec_timestamp.as_bytes_be());
             md5.update(self.share_key[..(60 - prefix_len) as usize].as_bytes());
             md5.update(pwd_prefix.as_bytes());
             md5.update(username.as_bytes());

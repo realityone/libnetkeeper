@@ -4,11 +4,22 @@ use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
 
 pub trait BytesAble {
     fn as_bytes(&self) -> Vec<u8>;
+    fn write_bytes(&self, dst: &mut [u8]) {
+        dst.copy_from_slice(&self.as_bytes());
+    }
 }
 
 pub trait BytesAbleNum {
     fn as_bytes_be(&self) -> Vec<u8>;
     fn as_bytes_le(&self) -> Vec<u8>;
+
+    fn write_bytes_be(&self, dst: &mut [u8]) {
+        dst.copy_from_slice(&self.as_bytes_be());
+    }
+
+    fn write_bytes_le(&self, dst: &mut [u8]) {
+        dst.copy_from_slice(&self.as_bytes_le());
+    }
 }
 
 impl BytesAble for Ipv4Addr {

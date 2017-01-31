@@ -8,6 +8,7 @@ use singlenet::attributes::{Attribute, AttributeVec, AttributeType, KeepaliveDat
                             ParseAttributesError};
 use common::reader::{ReadBytesError, ReaderHelper};
 use common::utils::current_timestamp;
+use common::bytes::{BytesAble, BytesAbleNum};
 
 #[derive(Debug)]
 pub enum SinglenetHeartbeatError {
@@ -110,16 +111,11 @@ impl Packet {
         };
 
         {
-            let mut magic_number_bytes = [0u8; 2];
-            let mut length_bytes = [0u8; 2];
-            NetworkEndian::write_u16(&mut magic_number_bytes, self.magic_number);
-            NetworkEndian::write_u16(&mut length_bytes, self.length);
-
             let attributes_bytes = self.attributes.as_bytes();
             let raw_packet_code = self.code as u8;
 
-            bytes.extend_from_slice(&magic_number_bytes);
-            bytes.extend_from_slice(&length_bytes);
+            bytes.extend(self.magic_number.as_bytes_be());
+            bytes.extend(self.length.as_bytes_be());
             bytes.push(raw_packet_code);
             bytes.push(self.seq);
             bytes.extend_from_slice(&authorization);

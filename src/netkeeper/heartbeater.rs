@@ -8,6 +8,7 @@ use byteorder::{NetworkEndian, ByteOrder};
 
 use common::utils::current_timestamp;
 use common::reader::{ReadBytesError, ReaderHelper};
+use common::bytes::BytesAbleNum;
 
 #[derive(Debug)]
 pub enum NetkeeperHeartbeatError {
@@ -115,17 +116,10 @@ impl Packet {
             let enc_content = try!(encrypter.encrypt(&self.frame.as_bytes(None))
                 .map_err(NetkeeperHeartbeatError::PacketCipherError));
 
-            let mut magic_number_bytes = [0u8; 2];
-            let mut code_bytes = [0u8; 2];
-            let mut enc_length_bytes = [0u8; 4];
-            NetworkEndian::write_u16(&mut magic_number_bytes, self.magic_number);
-            NetworkEndian::write_u16(&mut code_bytes, self.code);
-            NetworkEndian::write_u32(&mut enc_length_bytes, enc_content.len() as u32);
-
-            packet_bytes.extend_from_slice(&magic_number_bytes);
+            packet_bytes.extend(self.magic_number.as_bytes_be());
             packet_bytes.extend(version_str.as_bytes());
-            packet_bytes.extend_from_slice(&code_bytes);
-            packet_bytes.extend_from_slice(&enc_length_bytes);
+            packet_bytes.extend(self.code.as_bytes_be());
+            packet_bytes.extend((enc_content.len() as u32).as_bytes_be());
             packet_bytes.extend(enc_content);
         }
         Ok(packet_bytes)

@@ -7,7 +7,7 @@ use byteorder::{NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, HasherType};
 use common::utils::current_timestamp;
-use common::bytes::BytesAble;
+use common::bytes::{BytesAble, BytesAbleNum};
 
 #[derive(Debug)]
 pub enum ParseAttributesError {
@@ -133,12 +133,9 @@ impl Attribute {
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut attribute_bytes = Vec::new();
         {
-            let mut length_bytes = [0u8; 2];
-            NetworkEndian::write_u16(&mut length_bytes, self.length());
-
             let raw_attribute_id = self.attribute_id as u8;
             attribute_bytes.push(raw_attribute_id);
-            attribute_bytes.extend_from_slice(&length_bytes);
+            attribute_bytes.extend(self.length().as_bytes_be());
             attribute_bytes.extend_from_slice(&self.data);
         }
         attribute_bytes
@@ -157,10 +154,7 @@ impl KeepaliveDataCalculator {
         let keepalive_data;
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
-            let mut timenow_bytes = [0u8; 4];
-            NetworkEndian::write_u32(&mut timenow_bytes, timenow);
-
-            md5.update(&timenow_bytes);
+            md5.update(&timenow.as_bytes_be());
             md5.update(salt.as_bytes());
 
             let hashed_bytes = md5.finish();
