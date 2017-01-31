@@ -7,6 +7,7 @@ use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
 use common::reader::{ReadBytesError, ReaderHelper};
+use common::bytes::BytesAbleNum;
 use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
 
 #[derive(Debug)]
@@ -128,9 +129,12 @@ impl Hasher for NoneHasher {
     fn update(&mut self, bytes: &[u8]) {}
     fn finish(&mut self) -> Vec<u8> {
         const DRCOM_DIAL_EXT_PROTO_CRC_INIT: u32 = 20000711;
-        let mut result = vec![0u8; 8];
-        NativeEndian::write_u32(result.as_mut_slice(), DRCOM_DIAL_EXT_PROTO_CRC_INIT);
-        NativeEndian::write_u32(&mut result.as_mut_slice()[4..], 126);
+        const UNKNOW_MAGIC_NUMBER: u32 = 126;
+
+        let mut result = Vec::with_capacity(8);
+        result.extend(DRCOM_DIAL_EXT_PROTO_CRC_INIT.as_bytes_le());
+        result.extend(UNKNOW_MAGIC_NUMBER.as_bytes_le());
+
         result
     }
 }
@@ -182,11 +186,25 @@ impl ChallengeRequest {
         65544u32
     }
 
-    pub fn as_bytes(&self) -> [u8; 8] {
-        let mut result = [0u8; 8];
+    fn header_length() -> usize {
+        1 + // code
+        1 // sequence
+    }
+
+    fn packet_length() -> usize {
+        1 + // code
+        1 + // sequence
+        4 + // magic number
+        2 // padding?
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut result = vec![0u8; Self::packet_length()];
+
         result[0] = Self::code();
         result[1] = self.sequence;
-        NativeEndian::write_u32(&mut result[2..], Self::magic_number());
+        Self::magic_number().write_bytes_le(&mut result[2..6]);
+
         result
     }
 }
@@ -196,7 +214,8 @@ impl ChallengeResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input).map_err(DrCOMHeartbeatError::ValidateError));
+        try!(Self::validate_stream(input, |c| c != 0x4d)
+            .map_err(DrCOMHeartbeatError::ValidateError));
         // drain unknow bytes
         try!(input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError));
 
@@ -291,15 +310,10 @@ impl<'a> HeartbeatRequest<'a> {
         {
             header_bytes.push(Self::code());
             header_bytes.push(self.sequence);
-
-            let mut packet_length_bytes = [0u8; 2];
-            NativeEndian::write_u16(&mut packet_length_bytes, Self::packet_length() as u16);
-            header_bytes.extend_from_slice(&packet_length_bytes);
+            header_bytes.extend((Self::packet_length() as u16).as_bytes_le());
         }
 
-        let mut challenge_seed_bytes = [0u8; 4];
-        NativeEndian::write_u32(&mut challenge_seed_bytes, self.challenge_seed);
-
+        let challenge_seed_bytes = self.challenge_seed.as_bytes_le();
         let mut content_bytes = Vec::with_capacity(Self::content_length());
         {
             content_bytes.push(self.type_id);
@@ -307,10 +321,9 @@ impl<'a> HeartbeatRequest<'a> {
             content_bytes.extend_from_slice(&self.mac_address);
             content_bytes.extend_from_slice(&self.source_ip.octets());
 
-            let mut flag_bytes = [0u8; 4];
-            NativeEndian::write_u32(&mut flag_bytes, self.flag.as_u32());
+            let flag_bytes = self.flag.as_u32().as_bytes_le();
             content_bytes.extend_from_slice(&flag_bytes);
-            content_bytes.extend_from_slice(&challenge_seed_bytes);
+            content_bytes.extend(&challenge_seed_bytes);
         }
 
         let mut footer_bytes = Vec::with_capacity(Self::footer_length());
@@ -326,8 +339,9 @@ impl<'a> HeartbeatRequest<'a> {
                 rehash_bytes.extend(&footer_bytes);
                 let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap()) *
                              Wrapping(19680126);
-                NativeEndian::write_u32(&mut footer_bytes, rehash.0);
-                NativeEndian::write_u32(&mut footer_bytes[4..], 0u32);
+
+                rehash.0.write_bytes_le(&mut footer_bytes[0..4]);
+                0u32.write_bytes_le(&mut footer_bytes[4..8]);
             }
             // padding?
             footer_bytes.extend_from_slice(&[0u8; 16 * 4]);
@@ -394,24 +408,15 @@ impl<'a> KeepAliveRequest<'a> {
 
         packet_bytes.push(Self::code());
         packet_bytes.push(self.sequence);
-
-        let mut packet_length_bytes = [0u8; 2];
-        NativeEndian::write_u16(&mut packet_length_bytes, Self::packet_length() as u16);
-        packet_bytes.extend_from_slice(&packet_length_bytes);
-
+        packet_bytes.extend((Self::packet_length() as u16).as_bytes_le());
         packet_bytes.push(Self::uid_length() as u8);
         packet_bytes.push(self.type_id);
-
-        let mut keep_alive_flag_bytes = [0u8; 4];
-        NativeEndian::write_u32(&mut keep_alive_flag_bytes, self.flag.as_u32());
-        packet_bytes.extend_from_slice(&keep_alive_flag_bytes);
+        packet_bytes.extend(self.flag.as_u32().as_bytes_le());
 
         // padding?
         packet_bytes.extend_from_slice(&[0u8; 6]);
 
-        let mut keep_alive_seed_bytes = [0u8; 4];
-        NativeEndian::write_u32(&mut keep_alive_seed_bytes, self.keep_alive_seed);
-        packet_bytes.extend_from_slice(&keep_alive_seed_bytes);
+        packet_bytes.extend(self.keep_alive_seed.as_bytes_le());
 
         let footer_bytes = match self.type_id {
             3 => {
@@ -438,7 +443,8 @@ impl KeepAliveResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input).map_err(DrCOMHeartbeatError::ValidateError));
+        try!(Self::validate_stream(input, |c| c != 0x4d)
+            .map_err(DrCOMHeartbeatError::ValidateError));
         // drain unknow bytes
         try!(input.read_bytes(1).map_err(DrCOMHeartbeatError::PacketReadError));
 

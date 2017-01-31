@@ -20,3 +20,4 @@ pub fn any_to_bytes<T>(any_type: &T) -> &[u8]
     }
     integer_bytes
 }
+

@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
 
-use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
+use common::bytes::BytesAbleNum;
 
 // copy from https://github.com/xuzhipengnt/ipclient_gxnu
 const USERNAME_MAX_LEN: usize = 30;
@@ -63,13 +63,10 @@ impl MACOpenPacket {
             mac_address_bytes[..self.mac_address.len()]
                 .clone_from_slice(self.mac_address.as_bytes());
 
-            let mut isp_bytes = [0u8; 4];
-            NetworkEndian::write_u32(&mut isp_bytes, self.isp as u32);
-
             macopen_packet.extend_from_slice(&username_bytes);
             macopen_packet.extend_from_slice(&self.ipaddress.octets());
             macopen_packet.extend_from_slice(&mac_address_bytes);
-            macopen_packet.extend_from_slice(&isp_bytes);
+            macopen_packet.extend((self.isp as u32).as_bytes_be());
 
             let hash_bytes = Self::hash_bytes(&macopen_packet, hash_key);
             macopen_packet.extend_from_slice(&hash_bytes);
@@ -96,7 +93,7 @@ impl MACOpenPacket {
         hash &= Wrapping(0x7fffffff);
 
         let mut hash_bytes = [0; 4];
-        NativeEndian::write_i32(&mut hash_bytes, hash.0);
+        (hash.0 as u32).write_bytes_le(&mut hash_bytes);
         hash_bytes
     }
 }
