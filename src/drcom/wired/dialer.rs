@@ -377,8 +377,11 @@ impl LoginAccount {
     }
 
     fn tag_account_info(&self) -> LoginResult<TagAccountInfo> {
-        try!(self.validate());
         Ok(TagAccountInfo::new(&self.username, self.password_md5_hash()))
+    }
+
+    fn tag_ldap_auth(&self) -> LoginResult<TagLDAPAuth> {
+        Ok(TagLDAPAuth::new(try!(self.password_ror_hash())))
     }
 }
 
@@ -445,9 +448,8 @@ fn test_login_packet_attributes() {
                vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
                     177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
                     109, 101]);
-
-    // let la = TagLDAPAuth { password_ror_hash: vec![146, 26, 36, 122, 150] };
-    // assert_eq!(la.as_bytes().unwrap(), vec![0, 5, 146, 26, 36, 122, 150]);
+    assert_eq!(la.tag_ldap_auth().unwrap().as_bytes().unwrap(),
+               vec![0, 8, 246, 118, 31, 45, 254, 12, 137, 112]);
 }
 
 #[test]
