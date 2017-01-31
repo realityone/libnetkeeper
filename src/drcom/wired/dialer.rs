@@ -9,12 +9,12 @@ use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
 use common::utils::current_timestamp;
 use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::{BytesAble, BytesAbleNum};
+use crypto::hash::{HasherType, HasherBuilder};
 
 #[derive(Debug)]
 pub enum LoginError {
     ValidateError(DrCOMValidateError),
     PacketReadError(ReadBytesError),
-    // max_len {}, got {}
     StringFieldOverflow(String, usize),
 }
 
@@ -49,8 +49,15 @@ pub struct TagHostInfo {
     os_version: TagOSVersionInfo,
 }
 
+#[derive(Debug)]
+pub struct TagLDAPAuth {
+    password: String,
+    hash_salt: [u8; 4],
+}
+
 const SERVICE_PACK_MAX_LEN: usize = 32;
 const HOST_NAME_MAX_LEN: usize = 32;
+const PASSWORD_MAX_LEN: usize = 16;
 
 impl DrCOMCommon for ChallengeRequest {
     fn code() -> u8 {
@@ -255,4 +262,98 @@ impl Default for TagHostInfo {
     fn default() -> Self {
         TagHostInfo::new(None, None, None, None, None, None)
     }
+}
+
+impl TagLDAPAuth {
+    fn validate(&self) -> LoginResult<()> {
+        if self.password.len() > PASSWORD_MAX_LEN {
+            return Err(LoginError::StringFieldOverflow(self.password.clone(), PASSWORD_MAX_LEN));
+        }
+        Ok(())
+    }
+
+    fn new(password: &str, hash_salt: [u8; 4]) -> Self {
+        let password = password.to_string();
+        TagLDAPAuth {
+            password: password,
+            hash_salt: hash_salt,
+        }
+    }
+
+    fn ror(md5_digest: [u8; 16], password: &str) -> LoginResult<Vec<u8>> {
+        if password.len() > PASSWORD_MAX_LEN {
+            return Err(LoginError::StringFieldOverflow(password.to_string(), PASSWORD_MAX_LEN));
+        }
+
+        let mut result = Vec::with_capacity(PASSWORD_MAX_LEN);
+        for (i, c) in password.as_bytes().into_iter().enumerate() {
+            let x: u8 = md5_digest[i] ^ c;
+            result.push((x << 3) + (x >> 5));
+        }
+        Ok(result)
+    }
+
+    fn packet_length(&self) -> usize {
+        1 + // code
+        1 + // password length
+        self.password.len()
+    }
+
+    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+        const HASH_SALT_MAGIC_NUMBER: u16 = 0x0103u16;
+
+        try!(self.validate());
+
+        let mut result = Vec::with_capacity(self.packet_length());
+        result.push(0u8);
+        result.push(self.password.len() as u8);
+
+        let password_hash;
+        {
+            let mut md5 = HasherBuilder::build(HasherType::MD5);
+            md5.update(&HASH_SALT_MAGIC_NUMBER.as_bytes_le());
+            md5.update(&self.hash_salt);
+            md5.update(self.password.as_bytes());
+
+            let mut md5_digest = [0u8; 16];
+            md5_digest.copy_from_slice(&md5.finish());
+            password_hash = try!(TagLDAPAuth::ror(md5_digest, &self.password));
+        }
+        result.extend(password_hash);
+
+        Ok(result)
+    }
+}
+
+#[test]
+fn test_login_packet_attributes() {
+    let tovi = TagOSVersionInfo::default();
+    assert_eq!(tovi.as_bytes().unwrap(),
+               vec![148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56,
+                    57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+    let thi = TagHostInfo::default();
+    assert_eq!(thi.as_bytes().unwrap(),
+               vec![76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2,
+                    0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0]);
+
+    let la = TagLDAPAuth::new("admin", [1, 2, 3, 4]);
+    assert_eq!(la.as_bytes().unwrap(), vec![0, 5, 146, 26, 36, 122, 150]);
+}
+
+#[test]
+fn test_ror() {
+    assert_eq!(TagLDAPAuth::ror([253u8; 16], "1234567812345678").unwrap(),
+               vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 }
