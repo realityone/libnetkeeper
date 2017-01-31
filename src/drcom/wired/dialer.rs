@@ -58,6 +58,7 @@ pub struct TagLDAPAuth {
 const SERVICE_PACK_MAX_LEN: usize = 32;
 const HOST_NAME_MAX_LEN: usize = 32;
 const PASSWORD_MAX_LEN: usize = 16;
+const LOGIN_PACKET_MAGIC_NUMBER: u16 = 0x0103u16;
 
 impl DrCOMCommon for ChallengeRequest {
     fn code() -> u8 {
@@ -302,8 +303,6 @@ impl TagLDAPAuth {
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
-        const HASH_SALT_MAGIC_NUMBER: u16 = 0x0103u16;
-
         try!(self.validate());
 
         let mut result = Vec::with_capacity(self.packet_length());
@@ -313,7 +312,7 @@ impl TagLDAPAuth {
         let password_hash;
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
-            md5.update(&HASH_SALT_MAGIC_NUMBER.as_bytes_le());
+            md5.update(&LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
             md5.update(&self.hash_salt);
             md5.update(self.password.as_bytes());
 
