@@ -34,42 +34,29 @@ impl BytesAble for String {
     }
 }
 
-impl BytesAble for u32 {
-    fn as_bytes(&self) -> Vec<u8> {
-        self.as_bytes_be().to_vec()
-    }
+macro_rules! impl_bytes_able_for_num_type {
+    ($ty:ty, $size:expr) => (
+        impl BytesAble for $ty {
+            fn as_bytes(&self) -> Vec<u8> {
+                self.as_bytes_be().to_vec()
+            }
+        }
+
+        impl BytesAbleNum for $ty {
+            fn as_bytes_be(&self) -> Vec<u8> {
+                let mut bytes = [0u8; $size];
+                NetworkEndian::write_uint(&mut bytes, *self as u64, $size);
+                bytes.to_vec()
+            }
+
+            fn as_bytes_le(&self) -> Vec<u8> {
+                let mut bytes = [0u8; $size];
+                NativeEndian::write_uint(&mut bytes, *self as u64, $size);
+                bytes.to_vec()
+            }
+        }
+    )
 }
 
-impl BytesAble for u16 {
-    fn as_bytes(&self) -> Vec<u8> {
-        self.as_bytes_be().to_vec()
-    }
-}
-
-impl BytesAbleNum for u32 {
-    fn as_bytes_be(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 4];
-        NetworkEndian::write_u32(&mut bytes, *self);
-        bytes.to_vec()
-    }
-
-    fn as_bytes_le(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 4];
-        NativeEndian::write_u32(&mut bytes, *self);
-        bytes.to_vec()
-    }
-}
-
-impl BytesAbleNum for u16 {
-    fn as_bytes_be(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 2];
-        NetworkEndian::write_u16(&mut bytes, *self);
-        bytes.to_vec()
-    }
-
-    fn as_bytes_le(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 2];
-        NativeEndian::write_u16(&mut bytes, *self);
-        bytes.to_vec()
-    }
-}
+impl_bytes_able_for_num_type!(u32, 4);
+impl_bytes_able_for_num_type!(u16, 2);

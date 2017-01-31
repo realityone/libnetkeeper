@@ -8,7 +8,7 @@ use singlenet::attributes::{Attribute, AttributeVec, AttributeType, KeepaliveDat
                             ParseAttributesError};
 use common::reader::{ReadBytesError, ReaderHelper};
 use common::utils::current_timestamp;
-use common::bytes::{BytesAble, BytesAbleNum};
+use common::bytes::BytesAbleNum;
 
 #[derive(Debug)]
 pub enum SinglenetHeartbeatError {
