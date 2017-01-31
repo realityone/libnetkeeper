@@ -68,7 +68,7 @@ struct TagAdapterInfo {
     password_md5_hash: [u8; 16],
     mac_address: [u8; 6],
     password_md5_hash_validator: [u8; 16],
-    ipaddress: [Ipv4Addr; 4],
+    ipaddresses: [Ipv4Addr; 4],
 }
 
 #[derive(Debug)]
@@ -82,6 +82,9 @@ pub struct LoginAccount {
     username: String,
     password: String,
     hash_salt: [u8; 4],
+    adapter_counts: u8,
+    mac_address: [u8; 6],
+    ipaddresses: [Ipv4Addr; 4],
 }
 
 const SERVICE_PACK_MAX_LEN: usize = 32;
@@ -342,14 +345,29 @@ impl LoginAccount {
         Ok(())
     }
 
-    fn new(username: &str, password: &str, hash_salt: [u8; 4]) -> Self {
+    fn new(username: &str,
+           password: &str,
+           hash_salt: [u8; 4],
+           adapter_counts: Option<u8>,
+           ipaddresses: Vec<Ipv4Addr>,
+           mac_address: Option<[u8; 6]>)
+           -> Self {
         let username = username.to_string();
         let password = password.to_string();
+        let adapter_counts = adapter_counts.unwrap_or(1);
+        let mac_address = mac_address.unwrap_or([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80]);
+        let mut fixed_ipaddresses = [Ipv4Addr::from(0x0); 4];
+        for (i, ip) in ipaddresses.into_iter().take(4).enumerate() {
+            fixed_ipaddresses[i] = ip;
+        }
 
         LoginAccount {
             username: username,
             password: password,
             hash_salt: hash_salt,
+            adapter_counts: adapter_counts,
+            mac_address: mac_address,
+            ipaddresses: fixed_ipaddresses,
         }
     }
 
@@ -400,6 +418,14 @@ impl LoginAccount {
     fn tag_ldap_auth(&self) -> LoginResult<TagLDAPAuth> {
         Ok(TagLDAPAuth::new(try!(self.password_ror_hash())))
     }
+
+    fn tag_adapter_info(&self) -> LoginResult<TagAdapterInfo> {
+        Ok(TagAdapterInfo::new(self.adapter_counts,
+                               self.password_md5_hash(),
+                               self.mac_address,
+                               self.password_md5_hash_validator(),
+                               self.ipaddresses))
+    }
 }
 
 impl TagAccountInfo {
@@ -441,14 +467,14 @@ impl TagAdapterInfo {
            password_md5_hash: [u8; 16],
            mac_address: [u8; 6],
            password_md5_hash_validator: [u8; 16],
-           ipaddress: [Ipv4Addr; 4])
+           ipaddresses: [Ipv4Addr; 4])
            -> Self {
         TagAdapterInfo {
             counts: counts,
             password_md5_hash: password_md5_hash,
             mac_address: mac_address,
             password_md5_hash_validator: password_md5_hash_validator,
-            ipaddress: ipaddress,
+            ipaddresses: ipaddresses,
         }
     }
 
@@ -459,10 +485,10 @@ impl TagAdapterInfo {
         4 * 4 // ipaddress * 4
     }
 
-    fn hash_mac_address(mac_address: &[u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
+    fn hash_mac_address(mac_address: [u8; 6], password_md5_hash: [u8; 16]) -> [u8; 6] {
         let prefix = &password_md5_hash[..6];
         let prefix_hex_u64 = u64::from_str_radix(&prefix.to_hex(), 16).unwrap();
-        let mac_address_u64 = NetworkEndian::read_uint(mac_address, 6);
+        let mac_address_u64 = NetworkEndian::read_uint(&mac_address, 6);
 
         let mut result = [0u8; 6];
         result.clone_from_slice(&((prefix_hex_u64 ^ mac_address_u64) as u64).as_bytes_le()[..6]);
@@ -473,6 +499,11 @@ impl TagAdapterInfo {
         let mut result = Vec::with_capacity(Self::packet_length());
 
         result.push(self.counts);
+        result.extend_from_slice(&Self::hash_mac_address(self.mac_address, self.password_md5_hash));
+        result.push(self.ipaddresses.len() as u8);
+        for ip in &self.ipaddresses {
+            result.extend(ip.as_bytes());
+        }
         Ok(result)
     }
 }
@@ -501,7 +532,12 @@ fn test_login_packet_attributes() {
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0]);
 
-    let la = LoginAccount::new("usernameusername", "password", [1, 2, 3, 4]);
+    let la = LoginAccount::new("usernameusername",
+                               "password",
+                               [1, 2, 3, 4],
+                               None,
+                               vec![Ipv4Addr::from(0x12345678)],
+                               None);
     assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
                vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
                     177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
@@ -515,14 +551,19 @@ fn test_password_hash() {
     assert_eq!(LoginAccount::ror([253u8; 16], "1234567812345678").unwrap(),
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 
-    let la = LoginAccount::new("username", "password", [1, 2, 3, 4]);
+    let la = LoginAccount::new("username",
+                               "password",
+                               [1, 2, 3, 4],
+                               None,
+                               vec![Ipv4Addr::from(0x12345678)],
+                               None);
     assert_eq!(la.password_md5_hash(),
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
     assert_eq!(la.password_md5_hash_validator(),
                [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]);
 
-    assert_eq!(TagAdapterInfo::hash_mac_address(&[6, 5, 4, 3, 2, 1],
-                                                &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-                                                  15, 16]),
+    assert_eq!(TagAdapterInfo::hash_mac_address([6, 5, 4, 3, 2, 1],
+                                                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+                                                 15, 16]),
                [7, 7, 7, 7, 7, 7]);
 }
