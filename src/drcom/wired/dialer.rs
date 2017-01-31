@@ -4,6 +4,8 @@ use std::str::FromStr;
 
 use rand;
 use rand::Rng;
+use rustc_serialize::hex::ToHex;
+use byteorder::{NetworkEndian, ByteOrder};
 
 use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
 use common::utils::current_timestamp;
@@ -58,6 +60,21 @@ struct TagLDAPAuth {
 struct TagAccountInfo {
     username: String,
     password_md5_hash: [u8; 16],
+}
+
+#[derive(Debug)]
+struct TagAdapterInfo {
+    counts: u8,
+    password_md5_hash: [u8; 16],
+    mac_address: [u8; 6],
+    password_md5_hash_validator: [u8; 16],
+    ipaddress: [Ipv4Addr; 4],
+}
+
+#[derive(Debug)]
+struct LoginRequest {
+    account_info: TagAccountInfo,
+    control_check_status: u8, // adapter_info
 }
 
 #[derive(Debug)]
@@ -419,6 +436,47 @@ impl TagAccountInfo {
     }
 }
 
+impl TagAdapterInfo {
+    fn new(counts: u8,
+           password_md5_hash: [u8; 16],
+           mac_address: [u8; 6],
+           password_md5_hash_validator: [u8; 16],
+           ipaddress: [Ipv4Addr; 4])
+           -> Self {
+        TagAdapterInfo {
+            counts: counts,
+            password_md5_hash: password_md5_hash,
+            mac_address: mac_address,
+            password_md5_hash_validator: password_md5_hash_validator,
+            ipaddress: ipaddress,
+        }
+    }
+
+    fn packet_length() -> usize {
+        1 + // adapter counts
+        6 + // hashed mac address
+        16 + // password_md5_hash_validator
+        4 * 4 // ipaddress * 4
+    }
+
+    fn hash_mac_address(mac_address: &[u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
+        let prefix = &password_md5_hash[..6];
+        let prefix_hex_u64 = u64::from_str_radix(&prefix.to_hex(), 16).unwrap();
+        let mac_address_u64 = NetworkEndian::read_uint(mac_address, 6);
+
+        let mut result = [0u8; 6];
+        result.clone_from_slice(&((prefix_hex_u64 ^ mac_address_u64) as u64).as_bytes_le()[..6]);
+        result
+    }
+
+    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+        let mut result = Vec::with_capacity(Self::packet_length());
+
+        result.push(self.counts);
+        Ok(result)
+    }
+}
+
 
 #[test]
 fn test_login_packet_attributes() {
@@ -462,4 +520,9 @@ fn test_password_hash() {
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
     assert_eq!(la.password_md5_hash_validator(),
                [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]);
+
+    assert_eq!(TagAdapterInfo::hash_mac_address(&[6, 5, 4, 3, 2, 1],
+                                                &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+                                                  15, 16]),
+               [7, 7, 7, 7, 7, 7]);
 }

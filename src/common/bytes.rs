@@ -67,5 +67,6 @@ macro_rules! impl_bytes_able_for_num_type {
     )
 }
 
+impl_bytes_able_for_num_type!(u64, 8);
 impl_bytes_able_for_num_type!(u32, 4);
 impl_bytes_able_for_num_type!(u16, 2);
