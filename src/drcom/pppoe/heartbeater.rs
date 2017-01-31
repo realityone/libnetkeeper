@@ -182,11 +182,25 @@ impl ChallengeRequest {
         65544u32
     }
 
-    pub fn as_bytes(&self) -> [u8; 8] {
-        let mut result = [0u8; 8];
+    fn header_length() -> usize {
+        1 + // code
+        1 // sequence
+    }
+
+    fn packet_length() -> usize {
+        1 + // code
+        1 + // sequence
+        4 + // magic number
+        2 // padding?
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut result = vec![0u8; Self::packet_length()];
+
         result[0] = Self::code();
         result[1] = self.sequence;
-        NativeEndian::write_u32(&mut result[2..], Self::magic_number());
+        NativeEndian::write_u32(&mut result[Self::header_length()..], Self::magic_number());
+
         result
     }
 }
@@ -196,7 +210,8 @@ impl ChallengeResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input).map_err(DrCOMHeartbeatError::ValidateError));
+        try!(Self::validate_stream(input, |c| c != 0x4d)
+            .map_err(DrCOMHeartbeatError::ValidateError));
         // drain unknow bytes
         try!(input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError));
 
@@ -438,7 +453,8 @@ impl KeepAliveResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input).map_err(DrCOMHeartbeatError::ValidateError));
+        try!(Self::validate_stream(input, |c| c != 0x4d)
+            .map_err(DrCOMHeartbeatError::ValidateError));
         // drain unknow bytes
         try!(input.read_bytes(1).map_err(DrCOMHeartbeatError::PacketReadError));
 

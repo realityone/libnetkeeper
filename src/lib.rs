@@ -9,6 +9,7 @@ extern crate crypto as rust_crypto;
 extern crate md4;
 extern crate time;
 extern crate byteorder;
+extern crate rand;
 
 pub mod common;
 pub mod drcom;
@@ -395,5 +396,28 @@ mod tests {
         let kar3 = KeepAliveResponse::from_bytes(&mut buffer3).unwrap();
         assert_eq!(kar3.response_type,
                    KeepAliveResponseType::UnrecognizedResponse);
+    }
+
+    #[test]
+    fn test_drcom_wired_challenge() {
+        use std::io::BufReader;
+        use drcom::wired::dialer::{ChallengeRequest, ChallengeResponse};
+
+        let c = ChallengeRequest::new(Some(1));
+        assert_eq!(c.as_bytes(),
+                   vec![1, 2, 1, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+        {
+            let fake_response: Vec<u8> = vec![2, 3, 4, 5, 6, 7, 8, 9, 10];
+            let mut buffer = BufReader::new(&fake_response as &[u8]);
+            let cr = ChallengeResponse::from_bytes(&mut buffer).unwrap();
+            assert_eq!(cr.hash_salt, [6u8, 7u8, 8u8, 9u8]);
+        }
+
+        {
+            let fake_response: Vec<u8> = vec![3, 3, 4, 5, 6, 7, 8, 9, 10];
+            let mut buffer = BufReader::new(&fake_response as &[u8]);
+            assert!(ChallengeResponse::from_bytes(&mut buffer).is_err());
+        }
     }
 }

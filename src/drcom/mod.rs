@@ -2,6 +2,7 @@ use std::io;
 use common::reader::{ReadBytesError, ReaderHelper};
 
 pub mod pppoe;
+pub mod wired;
 
 #[derive(Debug)]
 pub enum DrCOMValidateError {
@@ -13,23 +14,18 @@ pub trait DrCOMCommon {
     fn code() -> u8 {
         7u8
     }
-
-    fn pack_count(count: u32) -> u8 {
-        (count & 0xFF) as u8
-    }
 }
 
 pub trait DrCOMResponseCommon {
-    fn unexpected_code() -> u8 {
-        0x4du8
-    }
-
-    fn validate_stream<R>(input: &mut io::BufReader<R>) -> Result<(), DrCOMValidateError>
-        where R: io::Read
+    fn validate_stream<R, V>(input: &mut io::BufReader<R>,
+                             validator: V)
+                             -> Result<(), DrCOMValidateError>
+        where R: io::Read,
+              V: FnOnce(u8) -> bool
     {
         let code_bytes = try!(input.read_bytes(1).map_err(DrCOMValidateError::PacketReadError));
         let code = code_bytes[0];
-        if code == Self::unexpected_code() {
+        if !validator(code) {
             return Err(DrCOMValidateError::CodeMismatch(code));
         }
         Ok(())
