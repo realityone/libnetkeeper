@@ -7,6 +7,7 @@ use byteorder::{NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, HasherType};
 use common::utils::current_timestamp;
+use common::bytes::BytesAble;
 
 #[derive(Debug)]
 pub enum ParseAttributesError {
@@ -86,9 +87,7 @@ pub struct Attribute {
 
 pub struct KeepaliveDataCalculator;
 
-pub trait AttributeValue {
-    fn as_bytes(&self) -> Vec<u8>;
-}
+pub trait AttributeValue: BytesAble {}
 
 pub trait AttributeVec {
     fn as_bytes(&self) -> Vec<u8>;
@@ -374,25 +373,9 @@ impl AttributeVec for Vec<Attribute> {
     }
 }
 
-impl AttributeValue for Ipv4Addr {
-    fn as_bytes(&self) -> Vec<u8> {
-        self.octets().to_vec()
-    }
-}
-
-impl AttributeValue for String {
-    fn as_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
-}
-
-impl AttributeValue for u32 {
-    fn as_bytes(&self) -> Vec<u8> {
-        let mut bytes = [0u8; 4];
-        NetworkEndian::write_u32(&mut bytes, *self);
-        bytes.to_vec()
-    }
-}
+impl AttributeValue for String {}
+impl AttributeValue for Ipv4Addr {}
+impl AttributeValue for u32 {}
 
 #[test]
 fn test_attribute_gen_bytes() {
