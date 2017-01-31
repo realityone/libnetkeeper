@@ -4,6 +4,8 @@ use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
 
 pub trait BytesAble {
     fn as_bytes(&self) -> Vec<u8>;
+
+    #[inline]
     fn write_bytes(&self, dst: &mut [u8]) {
         dst.copy_from_slice(&self.as_bytes());
     }
@@ -13,22 +15,26 @@ pub trait BytesAbleNum {
     fn as_bytes_be(&self) -> Vec<u8>;
     fn as_bytes_le(&self) -> Vec<u8>;
 
+    #[inline]
     fn write_bytes_be(&self, dst: &mut [u8]) {
         dst.copy_from_slice(&self.as_bytes_be());
     }
 
+    #[inline]
     fn write_bytes_le(&self, dst: &mut [u8]) {
         dst.copy_from_slice(&self.as_bytes_le());
     }
 }
 
 impl BytesAble for Ipv4Addr {
+    #[inline]
     fn as_bytes(&self) -> Vec<u8> {
         self.octets().to_vec()
     }
 }
 
 impl BytesAble for String {
+    #[inline]
     fn as_bytes(&self) -> Vec<u8> {
         self.as_bytes().to_vec()
     }
@@ -37,18 +43,21 @@ impl BytesAble for String {
 macro_rules! impl_bytes_able_for_num_type {
     ($ty:ty, $size:expr) => (
         impl BytesAble for $ty {
+            #[inline]
             fn as_bytes(&self) -> Vec<u8> {
                 self.as_bytes_be().to_vec()
             }
         }
 
         impl BytesAbleNum for $ty {
+            #[inline]
             fn as_bytes_be(&self) -> Vec<u8> {
                 let mut bytes = [0u8; $size];
                 NetworkEndian::write_uint(&mut bytes, *self as u64, $size);
                 bytes.to_vec()
             }
 
+            #[inline]
             fn as_bytes_le(&self) -> Vec<u8> {
                 let mut bytes = [0u8; $size];
                 NativeEndian::write_uint(&mut bytes, *self as u64, $size);
