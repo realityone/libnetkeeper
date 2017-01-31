@@ -55,7 +55,13 @@ struct TagLDAPAuth {
 }
 
 #[derive(Debug)]
-struct LoginAccount {
+struct TagAccountInfo {
+    username: String,
+    password_hash: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct LoginAccount {
     username: String,
     password: String,
     hash_salt: [u8; 4],
@@ -64,6 +70,7 @@ struct LoginAccount {
 const SERVICE_PACK_MAX_LEN: usize = 32;
 const HOSTNAME_MAX_LEN: usize = 32;
 const PASSWORD_MAX_LEN: usize = 16;
+const USERNAME_MAX_LEN: usize = 32;
 const LOGIN_PACKET_MAGIC_NUMBER: u16 = 0x0103u16;
 
 impl DrCOMCommon for ChallengeRequest {
@@ -301,7 +308,28 @@ impl TagLDAPAuth {
 
 
 impl LoginAccount {
-    fn password_ror(md5_digest: [u8; 16], password: &str) -> LoginResult<Vec<u8>> {
+    fn validate(&self) -> LoginResult<()> {
+        if self.username.len() > USERNAME_MAX_LEN {
+            return Err(LoginError::FieldValueOverflow(self.username.len(), USERNAME_MAX_LEN));
+        }
+        if self.password.len() > PASSWORD_MAX_LEN {
+            return Err(LoginError::FieldValueOverflow(self.username.len(), PASSWORD_MAX_LEN));
+        }
+        Ok(())
+    }
+
+    fn new(username: &str, password: &str, hash_salt: [u8; 4]) -> Self {
+        let username = username.to_string();
+        let password = password.to_string();
+
+        LoginAccount {
+            username: username,
+            password: password,
+            hash_salt: hash_salt,
+        }
+    }
+
+    fn ror(md5_digest: [u8; 16], password: &str) -> LoginResult<Vec<u8>> {
         if password.len() > PASSWORD_MAX_LEN {
             return Err(LoginError::FieldValueOverflow(password.len(), PASSWORD_MAX_LEN));
         }
@@ -314,7 +342,7 @@ impl LoginAccount {
         Ok(result)
     }
 
-    fn password_hash(&self) -> LoginResult<Vec<u8>> {
+    fn password_hash(&self) -> [u8; 16] {
         let mut md5 = HasherBuilder::build(HasherType::MD5);
         md5.update(&LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
         md5.update(&self.hash_salt);
@@ -322,9 +350,29 @@ impl LoginAccount {
 
         let mut md5_digest = [0u8; 16];
         md5_digest.copy_from_slice(&md5.finish());
-        Self::password_ror(md5_digest, &self.password)
+        md5_digest
+    }
+
+    fn password_hash_with_ror(&self) -> LoginResult<Vec<u8>> {
+        Self::ror(self.password_hash(), &self.password)
+    }
+
+    fn password_hash_validator(&self) -> [u8; 16] {
+        let mut md5 = HasherBuilder::build(HasherType::MD5);
+        md5.update(&[1u8; 1]);
+        md5.update(self.password.as_bytes());
+        md5.update(&self.hash_salt);
+        md5.update(&[0u8; 4]);
+
+        let mut md5_digest = [0u8; 16];
+        md5_digest.copy_from_slice(&md5.finish());
+        md5_digest
     }
 }
+
+// impl TagAccountInfo {
+//     fn
+// }
 
 
 #[test]
@@ -355,7 +403,13 @@ fn test_login_packet_attributes() {
 }
 
 #[test]
-fn test_ror() {
-    assert_eq!(LoginAccount::password_ror([253u8; 16], "1234567812345678").unwrap(),
+fn test_password_hash() {
+    assert_eq!(LoginAccount::ror([253u8; 16], "1234567812345678").unwrap(),
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
+
+    let la = LoginAccount::new("username", "password", [1, 2, 3, 4]);
+    assert_eq!(la.password_hash(),
+               [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
+    assert_eq!(la.password_hash_validator(),
+               [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]);
 }
