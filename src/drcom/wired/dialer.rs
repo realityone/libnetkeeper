@@ -74,18 +74,21 @@ impl ChallengeRequest {
         }
     }
 
+    #[inline]
     fn magic_number() -> u32 {
         9u32
     }
 
+    #[inline]
     fn packet_length() -> usize {
         1 + // code 
         1 + // sequence size
-        2 + // sequence
+        Self::sequence_length() +
         4 + // magic number
         12 // padding?
     }
 
+    #[inline]
     fn sequence_length() -> usize {
         2
     }
@@ -150,15 +153,13 @@ impl TagOSVersionInfo {
         Ok(())
     }
 
+    #[inline]
     fn packet_length() -> usize {
         4 + // packet_length
-        4 + // major_version
-        4 + // minor_version
-        4 + // build_number
-        4 + // platform_id
-        128 // service_pack
+        Self::content_length()
     }
 
+    #[inline]
     fn content_length() -> usize {
         4 + // major_version
         4 + // minor_version
@@ -226,6 +227,7 @@ impl TagHostInfo {
         Ok(())
     }
 
+    #[inline]
     fn packet_length() -> usize {
         32 + // hostname
         4 + // dns_server
