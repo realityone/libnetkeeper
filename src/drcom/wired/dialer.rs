@@ -51,13 +51,13 @@ pub struct TagHostInfo {
 
 #[derive(Debug)]
 struct TagLDAPAuth {
-    password_hash: Vec<u8>,
+    password_ror_hash: Vec<u8>,
 }
 
 #[derive(Debug)]
 struct TagAccountInfo {
     username: String,
-    password_hash: Vec<u8>,
+    password_md5_hash: [u8; 16],
 }
 
 #[derive(Debug)]
@@ -70,8 +70,20 @@ pub struct LoginAccount {
 const SERVICE_PACK_MAX_LEN: usize = 32;
 const HOSTNAME_MAX_LEN: usize = 32;
 const PASSWORD_MAX_LEN: usize = 16;
-const USERNAME_MAX_LEN: usize = 32;
+const USERNAME_MAX_LEN: usize = 16;
 const LOGIN_PACKET_MAGIC_NUMBER: u16 = 0x0103u16;
+
+macro_rules! validate_field_value_overflow {
+    (
+        $( $field:expr, $max_size:expr );*
+    ) => {
+        $(
+            if $field.len() > $max_size {
+                return Err(LoginError::FieldValueOverflow($field.len(), $max_size));
+            }
+        )*
+    }
+}
 
 impl DrCOMCommon for ChallengeRequest {
     fn code() -> u8 {
@@ -160,10 +172,7 @@ impl TagOSVersionInfo {
     }
 
     fn validate(&self) -> LoginResult<()> {
-        if self.service_pack.len() > SERVICE_PACK_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(self.service_pack.len(),
-                                                      SERVICE_PACK_MAX_LEN));
-        }
+        validate_field_value_overflow!(self.service_pack, SERVICE_PACK_MAX_LEN);
         Ok(())
     }
 
@@ -235,9 +244,7 @@ impl TagHostInfo {
     }
 
     fn validate(&self) -> LoginResult<()> {
-        if self.hostname.len() > HOSTNAME_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(self.hostname.len(), HOSTNAME_MAX_LEN));
-        }
+        validate_field_value_overflow!(self.hostname, HOSTNAME_MAX_LEN);
         Ok(())
     }
 
@@ -281,17 +288,19 @@ impl Default for TagHostInfo {
 }
 
 impl TagLDAPAuth {
+    fn new(password_ror_hash: Vec<u8>) -> Self {
+        TagLDAPAuth { password_ror_hash: password_ror_hash }
+    }
+
     fn validate(&self) -> LoginResult<()> {
-        if self.password_hash.len() > PASSWORD_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(self.password_hash.len(), PASSWORD_MAX_LEN));
-        }
+        validate_field_value_overflow!(self.password_ror_hash, PASSWORD_MAX_LEN);
         Ok(())
     }
 
     fn packet_length(&self) -> usize {
         1 + // code
-        1 + // password_hash length
-        self.password_hash.len()
+        1 + // password_ror_hash length
+        self.password_ror_hash.len()
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -299,8 +308,8 @@ impl TagLDAPAuth {
 
         let mut result = Vec::with_capacity(self.packet_length());
         result.push(0u8);
-        result.push(self.password_hash.len() as u8);
-        result.extend(&self.password_hash);
+        result.push(self.password_ror_hash.len() as u8);
+        result.extend(&self.password_ror_hash);
 
         Ok(result)
     }
@@ -309,12 +318,10 @@ impl TagLDAPAuth {
 
 impl LoginAccount {
     fn validate(&self) -> LoginResult<()> {
-        if self.username.len() > USERNAME_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(self.username.len(), USERNAME_MAX_LEN));
-        }
-        if self.password.len() > PASSWORD_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(self.username.len(), PASSWORD_MAX_LEN));
-        }
+        validate_field_value_overflow!(
+            self.username, USERNAME_MAX_LEN;
+            self.password, PASSWORD_MAX_LEN
+        );
         Ok(())
     }
 
@@ -342,7 +349,7 @@ impl LoginAccount {
         Ok(result)
     }
 
-    fn password_hash(&self) -> [u8; 16] {
+    fn password_md5_hash(&self) -> [u8; 16] {
         let mut md5 = HasherBuilder::build(HasherType::MD5);
         md5.update(&LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
         md5.update(&self.hash_salt);
@@ -353,11 +360,11 @@ impl LoginAccount {
         md5_digest
     }
 
-    fn password_hash_with_ror(&self) -> LoginResult<Vec<u8>> {
-        Self::ror(self.password_hash(), &self.password)
+    fn password_ror_hash(&self) -> LoginResult<Vec<u8>> {
+        Self::ror(self.password_md5_hash(), &self.password)
     }
 
-    fn password_hash_validator(&self) -> [u8; 16] {
+    fn password_md5_hash_validator(&self) -> [u8; 16] {
         let mut md5 = HasherBuilder::build(HasherType::MD5);
         md5.update(&[1u8; 1]);
         md5.update(self.password.as_bytes());
@@ -368,11 +375,46 @@ impl LoginAccount {
         md5_digest.copy_from_slice(&md5.finish());
         md5_digest
     }
+
+    fn tag_account_info(&self) -> LoginResult<TagAccountInfo> {
+        try!(self.validate());
+        Ok(TagAccountInfo::new(&self.username, self.password_md5_hash()))
+    }
 }
 
-// impl TagAccountInfo {
-//     fn
-// }
+impl TagAccountInfo {
+    fn new(username: &str, password_md5_hash: [u8; 16]) -> Self {
+        let username = username.to_string();
+        TagAccountInfo {
+            username: username,
+            password_md5_hash: password_md5_hash,
+        }
+    }
+
+    fn validate(&self) -> LoginResult<()> {
+        validate_field_value_overflow!(self.username, USERNAME_MAX_LEN);
+        Ok(())
+    }
+
+    fn content_length(&self) -> usize {
+        self.password_md5_hash.len() + self.username.len() + 4 // pading?
+    }
+
+    fn packet_length(&self) -> usize {
+        2 + // attribute length
+        self.content_length()
+    }
+
+    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+        try!(self.validate());
+
+        let mut result = Vec::with_capacity(self.packet_length());
+        result.extend((self.content_length() as u16).as_bytes_be());
+        result.extend_from_slice(&self.password_md5_hash);
+        result.extend_from_slice(self.username.as_bytes());
+        Ok(result)
+    }
+}
 
 
 #[test]
@@ -398,8 +440,14 @@ fn test_login_packet_attributes() {
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0]);
 
-    let la = TagLDAPAuth { password_hash: vec![146, 26, 36, 122, 150] };
-    assert_eq!(la.as_bytes().unwrap(), vec![0, 5, 146, 26, 36, 122, 150]);
+    let la = LoginAccount::new("usernameusername", "password", [1, 2, 3, 4]);
+    assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
+               vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
+                    177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
+                    109, 101]);
+
+    // let la = TagLDAPAuth { password_ror_hash: vec![146, 26, 36, 122, 150] };
+    // assert_eq!(la.as_bytes().unwrap(), vec![0, 5, 146, 26, 36, 122, 150]);
 }
 
 #[test]
@@ -408,8 +456,8 @@ fn test_password_hash() {
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 
     let la = LoginAccount::new("username", "password", [1, 2, 3, 4]);
-    assert_eq!(la.password_hash(),
+    assert_eq!(la.password_md5_hash(),
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
-    assert_eq!(la.password_hash_validator(),
+    assert_eq!(la.password_md5_hash_validator(),
                [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]);
 }
