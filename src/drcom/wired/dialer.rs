@@ -74,7 +74,7 @@ struct TagAdapterInfo {
 
 #[derive(Debug)]
 struct TagAuthExtraInfo {
-    check_sum: u32,
+    origin_data: Vec<u8>,
     mac_address: [u8; 6],
     option: u16,
 }
@@ -86,7 +86,7 @@ struct TagAuthVersionInfo {
 }
 
 #[derive(Debug)]
-struct LoginRequest {
+pub struct LoginRequest {
     mac_address: [u8; 6],
     account_info: TagAccountInfo,
     control_check_status: u8,
@@ -379,22 +379,22 @@ impl LoginAccount {
     }
 
     #[allow(too_many_arguments)]
-    fn new(username: &str,
-           password: &str,
-           hash_salt: [u8; 4],
-           ipaddresses: &[Ipv4Addr],
-           mac_address: [u8; 6],
-           dog_flag: u8,
-           client_version: u8,
-           dog_version: u8,
-           adapter_counts: Option<u8>,
-           control_check_status: u8,
-           auto_logout: Option<bool>,
-           broadcast_mode: Option<bool>,
-           random: Option<u16>,
-           ror_version: Option<bool>,
-           auth_extra_options: Option<u16>)
-           -> Self {
+    pub fn new(username: &str,
+               password: &str,
+               hash_salt: [u8; 4],
+               ipaddresses: &[Ipv4Addr],
+               mac_address: [u8; 6],
+               dog_flag: u8,
+               client_version: u8,
+               dog_version: u8,
+               adapter_counts: Option<u8>,
+               control_check_status: u8,
+               auto_logout: Option<bool>,
+               broadcast_mode: Option<bool>,
+               random: Option<u16>,
+               ror_version: Option<bool>,
+               auth_extra_options: Option<u16>)
+               -> Self {
         let username = username.to_string();
         let password = password.to_string();
         let adapter_counts = adapter_counts.unwrap_or(1);
@@ -487,11 +487,11 @@ impl LoginAccount {
         Ok(TagHostInfo::default())
     }
 
-    fn login_request(&self) -> LoginResult<LoginRequest> {
+    pub fn login_request(&self) -> LoginResult<LoginRequest> {
         Ok(LoginRequest::new(self.mac_address,
                              try!(self.tag_account_info()),
                              try!(self.tag_adapter_info()),
-                             self.dog_version,
+                             self.dog_flag,
                              try!(self.tag_host_info()),
                              try!(self.tag_auth_version()),
                              self.control_check_status,
@@ -619,10 +619,22 @@ impl TagAuthVersionInfo {
 
 
 impl TagAuthExtraInfo {
-    fn new(check_sum: u32, mac_address: [u8; 6], option: Option<u16>) -> Self {
+    fn caculate_check_sum(data: &[u8], initial: Option<u32>) -> u32 {
+        let mut result = Wrapping(initial.unwrap_or(1234u32));
+        for chunk in data.chunks(4) {
+            let mut chunk_vec = chunk.to_vec();
+            chunk_vec.extend(vec![0u8; 4 - chunk.len()]);
+            chunk_vec.reverse();
+            result ^= Wrapping(u32::from_str_radix(&chunk_vec.to_hex(), 16).unwrap());
+        }
+        result *= Wrapping(1968);
+        result.0
+    }
+
+    fn new(origin_data: &[u8], mac_address: [u8; 6], option: Option<u16>) -> Self {
         let option = option.unwrap_or(0u16);
         TagAuthExtraInfo {
-            check_sum: check_sum,
+            origin_data: origin_data.to_vec(),
             option: option,
             mac_address: mac_address,
         }
@@ -647,11 +659,21 @@ impl TagAuthExtraInfo {
         2u8
     }
 
+    fn check_sum(&self) -> u32 {
+        const CHECK_SUM_PADDING_BYTES: [u8; 6] = [0x1, 0x26, 0x07, 0x11, 0x00, 0x00];
+        let mut to_check_data = self.origin_data.clone();
+        to_check_data.push(Self::code());
+        to_check_data.push(Self::content_length() as u8);
+        to_check_data.extend_from_slice(&CHECK_SUM_PADDING_BYTES);
+        to_check_data.extend_from_slice(&self.mac_address);
+        Self::caculate_check_sum(&to_check_data, None)
+    }
+
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         let mut result = Vec::with_capacity(Self::attribute_length());
         result.push(Self::code());
         result.push(Self::content_length() as u8);
-        result.extend(self.check_sum.as_bytes_le());
+        result.extend(self.check_sum().as_bytes_le());
         // padding?
         result.extend_from_slice(&[0, 0]);
         result.extend_from_slice(&self.mac_address);
@@ -661,18 +683,6 @@ impl TagAuthExtraInfo {
 }
 
 impl LoginRequest {
-    fn caculate_check_sum(data: &[u8], initial: Option<u32>) -> u32 {
-        let mut result = Wrapping(initial.unwrap_or(1234u32));
-        for chunk in data.chunks(4) {
-            let mut chunk_vec = chunk.to_vec();
-            chunk_vec.extend(vec![0u8; 4 - chunk.len()]);
-            chunk_vec.reverse();
-            result ^= Wrapping(u32::from_str_radix(&chunk_vec.to_hex(), 16).unwrap());
-        }
-        result *= Wrapping(1968);
-        result.0
-    }
-
     #[allow(too_many_arguments)]
     fn new(mac_address: [u8; 6],
            account_info: TagAccountInfo,
@@ -709,6 +719,7 @@ impl LoginRequest {
     fn packet_length(&self) -> usize {
         2 + // magic number
         self.account_info.attribute_length() + 
+        20 + // padding?
         1 + // control_check_status
         TagAdapterInfo::attribute_length() + 
         match self.ldap_auth_info {
@@ -721,13 +732,15 @@ impl LoginRequest {
         2 // random number
     }
 
-    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+    pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         let mut result = Vec::with_capacity(self.packet_length());
 
         // Phase 1
         {
             result.extend(LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
             result.extend(try!(self.account_info.as_bytes()));
+            // padding?
+            result.extend_from_slice(&[0u8; 20]);
             result.push(self.control_check_status);
             result.extend(try!(self.adapter_info.as_bytes()));
         }
@@ -756,9 +769,9 @@ impl LoginRequest {
 
         // Phase 4
         {
-            let auth_extra_info = TagAuthExtraInfo::new(Self::caculate_check_sum(&result, None),
-                                                        self.mac_address,
-                                                        self.auth_extra_options);
+            let origin_data = result.clone();
+            let auth_extra_info =
+                TagAuthExtraInfo::new(&origin_data, self.mac_address, self.auth_extra_options);
             result.extend(try!(auth_extra_info.as_bytes()));
         }
 
@@ -857,7 +870,20 @@ fn test_password_hash() {
 
 #[test]
 fn test_data_check_sum() {
-    assert_eq!(LoginRequest::caculate_check_sum(b"fdkjfkasdfdiaufiufiusafiuiasufisauifuiuaif",
-                                                None),
-               4114876992);
+    let data: [u8; 326] =
+        [3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222,
+         117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97, 109, 101, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169,
+         80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76,
+         73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0,
+         0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         10, 0, 2, 12, 1, 38, 7, 17, 0, 0, 184, 136, 227, 5, 22, 128];
+    assert_eq!(TagAuthExtraInfo::caculate_check_sum(&data, None),
+               3581815520);
 }
