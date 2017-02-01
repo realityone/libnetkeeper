@@ -491,18 +491,27 @@ impl TagAdapterInfo {
         let mac_address_u64 = NetworkEndian::read_uint(mac_address, 6);
 
         let mut result = [0u8; 6];
-        result.clone_from_slice(&((prefix_hex_u64 ^ mac_address_u64) as u64).as_bytes_le()[..6]);
+        result.clone_from_slice(&((prefix_hex_u64 ^ mac_address_u64) as u64).as_bytes_be()[2..8]);
         result
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         let mut result = Vec::with_capacity(Self::packet_length());
         result.push(self.counts);
-        result.extend_from_slice(&Self::hash_mac_address(&self.mac_address,
-                                                        &self.password_md5_hash));
-        result.push(self.ipaddresses.len() as u8);
-        for ip in &self.ipaddresses {
-            result.extend(ip.as_bytes());
+        result.extend_from_slice(&Self::hash_mac_address(&self.mac_address, &self.password_md5_hash));
+        result.extend_from_slice(&self.password_md5_hash_validator);
+
+        {
+            let mut specified_ip_count = 0u8;
+            let mut ipaddress_bytes = vec![0u8; self.ipaddresses.len() * 4];
+            for (i, ip) in self.ipaddresses.iter().enumerate() {
+                if !ip.is_unspecified() {
+                    specified_ip_count += 1;
+                    ipaddress_bytes[i * 4..i * 4 + 4].copy_from_slice(&ip.as_bytes());
+                }
+            }
+            result.push(specified_ip_count);
+            result.extend(ipaddress_bytes);
         }
         Ok(result)
     }
@@ -535,15 +544,19 @@ fn test_login_packet_attributes() {
     let la = LoginAccount::new("usernameusername",
                                "password",
                                [1, 2, 3, 4],
-                               None,
-                               vec![Ipv4Addr::from(0x12345678)],
-                               None);
+                               Some(1),
+                               vec![Ipv4Addr::from_str("10.30.22.17").unwrap()],
+                               Some([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80]));
     assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
                vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
                     177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
                     109, 101]);
     assert_eq!(la.tag_ldap_auth().unwrap().as_bytes().unwrap(),
                vec![0, 8, 246, 118, 31, 45, 254, 12, 137, 112]);
+    assert_eq!(la.tag_adapter_info().unwrap().as_bytes().unwrap(),
+               vec![1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59, 106, 173, 172, 242,
+                    14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0]);
 }
 
 #[test]
