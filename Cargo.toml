@@ -17,6 +17,7 @@ optional = true
 version = "*"
 
 [features]
+default = ["netkeeper", "singlenet", "drcom", "ghca", "srun3k", "ipclient"]
 dev = ["clippy"]
 
 netkeeper = []
