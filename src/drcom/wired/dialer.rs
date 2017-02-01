@@ -106,7 +106,7 @@ pub struct LoginAccount {
     username: String,
     password: String,
     hash_salt: [u8; 4],
-    adapter_counts: u8,
+    adapter_count: u8,
     mac_address: [u8; 6],
     ipaddresses: [Ipv4Addr; 4],
     dog_flag: u8,
@@ -133,6 +133,19 @@ macro_rules! validate_field_value_overflow {
         $(
             if $field.len() > $max_size {
                 return Err(LoginError::FieldValueOverflow($field.len(), $max_size));
+            }
+        )*
+    }
+}
+
+macro_rules! configable_field {
+    (
+        $( $field:ident, $ty:ty );*
+    ) => {
+        $(
+            pub fn $field(&mut self, value: $ty) -> &mut Self {
+                self.$field = value;
+                self
             }
         )*
     }
@@ -378,50 +391,50 @@ impl LoginAccount {
         Ok(())
     }
 
-    #[allow(too_many_arguments)]
-    pub fn new(username: &str,
-               password: &str,
-               hash_salt: [u8; 4],
-               ipaddresses: &[Ipv4Addr],
-               mac_address: [u8; 6],
-               dog_flag: u8,
-               client_version: u8,
-               dog_version: u8,
-               adapter_counts: Option<u8>,
-               control_check_status: u8,
-               auto_logout: Option<bool>,
-               broadcast_mode: Option<bool>,
-               random: Option<u16>,
-               ror_version: Option<bool>,
-               auth_extra_options: Option<u16>)
-               -> Self {
-        let username = username.to_string();
-        let password = password.to_string();
-        let adapter_counts = adapter_counts.unwrap_or(1);
-        let mut fixed_ipaddresses = [Ipv4Addr::from(0x0); 4];
-        for (i, ip) in ipaddresses.into_iter().take(4).enumerate() {
-            fixed_ipaddresses[i] = *ip;
-        }
-        let ror_version = ror_version.unwrap_or(false);
+    // #[allow(too_many_arguments)]
+    // pub fn new(username: &str,
+    //            password: &str,
+    //            hash_salt: [u8; 4],
+    //            ipaddresses: &[Ipv4Addr],
+    //            mac_address: [u8; 6],
+    //            dog_flag: u8,
+    //            client_version: u8,
+    //            dog_version: u8,
+    //            adapter_count: Option<u8>,
+    //            control_check_status: u8,
+    //            auto_logout: Option<bool>,
+    //            broadcast_mode: Option<bool>,
+    //            random: Option<u16>,
+    //            ror_version: Option<bool>,
+    //            auth_extra_options: Option<u16>)
+    //            -> Self {
+    //     let username = username.to_string();
+    //     let password = password.to_string();
+    //     let adapter_count = adapter_count.unwrap_or(1);
+    //     let mut fixed_ipaddresses = [Ipv4Addr::from(0x0); 4];
+    //     for (i, ip) in ipaddresses.into_iter().take(4).enumerate() {
+    //         fixed_ipaddresses[i] = *ip;
+    //     }
+    //     let ror_version = ror_version.unwrap_or(false);
 
-        LoginAccount {
-            username: username,
-            password: password,
-            hash_salt: hash_salt,
-            adapter_counts: adapter_counts,
-            mac_address: mac_address,
-            ipaddresses: fixed_ipaddresses,
-            dog_flag: dog_flag,
-            client_version: client_version,
-            dog_version: dog_version,
-            control_check_status: control_check_status,
-            auto_logout: auto_logout,
-            broadcast_mode: broadcast_mode,
-            random: random,
-            ror_version: ror_version,
-            auth_extra_options: auth_extra_options,
-        }
-    }
+    //     LoginAccount {
+    //         username: username,
+    //         password: password,
+    //         hash_salt: hash_salt,
+    //         adapter_count: adapter_count,
+    //         mac_address: mac_address,
+    //         ipaddresses: fixed_ipaddresses,
+    //         dog_flag: dog_flag,
+    //         client_version: client_version,
+    //         dog_version: dog_version,
+    //         control_check_status: control_check_status,
+    //         auto_logout: auto_logout,
+    //         broadcast_mode: broadcast_mode,
+    //         random: random,
+    //         ror_version: ror_version,
+    //         auth_extra_options: auth_extra_options,
+    //     }
+    // }
 
     fn ror(md5_digest: &[u8; 16], password: &str) -> LoginResult<Vec<u8>> {
         if password.len() > PASSWORD_MAX_LEN {
@@ -476,7 +489,7 @@ impl LoginAccount {
     }
 
     fn tag_adapter_info(&self) -> LoginResult<TagAdapterInfo> {
-        Ok(TagAdapterInfo::new(self.adapter_counts,
+        Ok(TagAdapterInfo::new(self.adapter_count,
                                self.password_md5_hash(),
                                self.mac_address,
                                self.password_md5_hash_validator(),
@@ -505,6 +518,51 @@ impl LoginAccount {
                              },
                              self.auth_extra_options))
     }
+
+    pub fn create(username: &str, password: &str) -> Self {
+        LoginAccount {
+            username: username.to_string(),
+            password: password.to_string(),
+            hash_salt: [0u8; 4],
+            adapter_count: 1,
+            mac_address: [0, 0, 0, 0, 0, 0],
+            ipaddresses: [Ipv4Addr::from(0x0); 4],
+            dog_flag: 0x1,
+            client_version: 0xa,
+            dog_version: 0x0,
+            control_check_status: 0x20,
+            auto_logout: Some(false),
+            broadcast_mode: Some(false),
+            random: Some(0x13e9),
+            ror_version: false,
+            auth_extra_options: Some(0x0),
+        }
+    }
+
+    pub fn ipaddresses(&mut self, value: &[Ipv4Addr]) -> &mut Self {
+        let mut fixed_ipaddresses = [Ipv4Addr::from(0x0); 4];
+        for (i, ip) in value.into_iter().take(4).enumerate() {
+            fixed_ipaddresses[i] = *ip;
+        }
+        self.ipaddresses = fixed_ipaddresses;
+        self
+    }
+
+    configable_field!(
+        hash_salt, [u8; 4];
+        adapter_count, u8;
+        mac_address, [u8; 6];
+    // ipaddresses, [Ipv4Addr; 4];
+        dog_flag, u8;
+        client_version, u8;
+        dog_version, u8;
+        control_check_status, u8;
+        auto_logout, Option<bool>;
+        broadcast_mode, Option<bool>;
+        random, Option<u16>;
+        ror_version, bool;
+        auth_extra_options, Option<u16>
+        );
 }
 
 impl TagAccountInfo {
@@ -810,21 +868,20 @@ fn test_login_packet_attributes() {
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0]);
 
-    let la = LoginAccount::new("usernameusername",
-                               "password",
-                               [1, 2, 3, 4],
-                               &[Ipv4Addr::from_str("10.30.22.17").unwrap()],
-                               [0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80],
-                               0x1,
-                               0xa,
-                               0x0,
-                               Some(1),
-                               0x20,
-                               Some(false),
-                               Some(false),
-                               None,
-                               Some(false),
-                               Some(0x0));
+    let mut la = LoginAccount::create("usernameusername", "password");
+    la.hash_salt([1, 2, 3, 4])
+        .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+        .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
+        .dog_flag(0x1)
+        .client_version(0xa)
+        .dog_version(0x0)
+        .adapter_count(0x1)
+        .control_check_status(0x20)
+        .auto_logout(Some(false))
+        .broadcast_mode(Some(false))
+        .random(Some(0x13e9))
+        .ror_version(false)
+        .auth_extra_options(Some(0x0));
     assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
                vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
                     177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
@@ -842,21 +899,20 @@ fn test_password_hash() {
     assert_eq!(LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 
-    let la = LoginAccount::new("username",
-                               "password",
-                               [1, 2, 3, 4],
-                               &[Ipv4Addr::from(0x12345678)],
-                               [0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80],
-                               0x1,
-                               0xa,
-                               0x0,
-                               Some(1),
-                               0x20,
-                               Some(false),
-                               Some(false),
-                               None,
-                               Some(false),
-                               Some(0x0));
+    let mut la = LoginAccount::create("usernameusername", "password");
+    la.hash_salt([1, 2, 3, 4])
+        .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+        .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
+        .dog_flag(0x1)
+        .client_version(0xa)
+        .dog_version(0x0)
+        .adapter_count(0x1)
+        .control_check_status(0x20)
+        .auto_logout(Some(false))
+        .broadcast_mode(Some(false))
+        .random(Some(0x13e9))
+        .ror_version(false)
+        .auth_extra_options(Some(0x0));
     assert_eq!(la.password_md5_hash(),
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
     assert_eq!(la.password_md5_hash_validator(),

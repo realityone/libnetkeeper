@@ -426,21 +426,20 @@ mod tests {
         use std::net::Ipv4Addr;
         use std::str::FromStr;
         use drcom::wired::dialer::LoginAccount;
-        let la = LoginAccount::new("usernameusername",
-                                   "password",
-                                   [1, 2, 3, 4],
-                                   &[Ipv4Addr::from_str("10.30.22.17").unwrap()],
-                                   [0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80],
-                                   0x1,
-                                   0xa,
-                                   0x0,
-                                   Some(1),
-                                   0x20,
-                                   Some(false),
-                                   Some(false),
-                                   None,
-                                   Some(false),
-                                   Some(0x0));
+        let mut la = LoginAccount::create("usernameusername", "password");
+        la.hash_salt([1, 2, 3, 4])
+            .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+            .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
+            .dog_flag(0x1)
+            .client_version(0xa)
+            .dog_version(0x0)
+            .adapter_count(0x1)
+            .control_check_status(0x20)
+            .auto_logout(Some(false))
+            .broadcast_mode(Some(false))
+            .random(Some(0x13e9))
+            .ror_version(false)
+            .auth_extra_options(Some(0x0));
         let lr = la.login_request();
         let origin_bytes =
             vec![3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
