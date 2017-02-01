@@ -3,7 +3,6 @@ use std::num::Wrapping;
 
 use common::bytes::BytesAbleNum;
 
-// copy from https://github.com/xuzhipengnt/ipclient_gxnu
 const USERNAME_MAX_LEN: usize = 30;
 const MAC_ADDRESS_LEN: usize = 18;
 

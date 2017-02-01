@@ -1,3 +1,4 @@
+// copy from https://github.com/drcoms/drcom-generic
 use std::io;
 use common::reader::{ReadBytesError, ReaderHelper};
 
