@@ -371,7 +371,7 @@ impl LoginAccount {
         }
     }
 
-    fn ror(md5_digest: [u8; 16], password: &str) -> LoginResult<Vec<u8>> {
+    fn ror(md5_digest: &[u8; 16], password: &str) -> LoginResult<Vec<u8>> {
         if password.len() > PASSWORD_MAX_LEN {
             return Err(LoginError::FieldValueOverflow(password.len(), PASSWORD_MAX_LEN));
         }
@@ -396,7 +396,7 @@ impl LoginAccount {
     }
 
     fn password_ror_hash(&self) -> LoginResult<Vec<u8>> {
-        Self::ror(self.password_md5_hash(), &self.password)
+        Self::ror(&self.password_md5_hash(), &self.password)
     }
 
     fn password_md5_hash_validator(&self) -> [u8; 16] {
@@ -485,10 +485,10 @@ impl TagAdapterInfo {
         4 * 4 // ipaddress * 4
     }
 
-    fn hash_mac_address(mac_address: [u8; 6], password_md5_hash: [u8; 16]) -> [u8; 6] {
+    fn hash_mac_address(mac_address: &[u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
         let prefix = &password_md5_hash[..6];
         let prefix_hex_u64 = u64::from_str_radix(&prefix.to_hex(), 16).unwrap();
-        let mac_address_u64 = NetworkEndian::read_uint(&mac_address, 6);
+        let mac_address_u64 = NetworkEndian::read_uint(mac_address, 6);
 
         let mut result = [0u8; 6];
         result.clone_from_slice(&((prefix_hex_u64 ^ mac_address_u64) as u64).as_bytes_le()[..6]);
@@ -497,9 +497,9 @@ impl TagAdapterInfo {
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         let mut result = Vec::with_capacity(Self::packet_length());
-
         result.push(self.counts);
-        result.extend_from_slice(&Self::hash_mac_address(self.mac_address, self.password_md5_hash));
+        result.extend_from_slice(&Self::hash_mac_address(&self.mac_address,
+                                                        &self.password_md5_hash));
         result.push(self.ipaddresses.len() as u8);
         for ip in &self.ipaddresses {
             result.extend(ip.as_bytes());
@@ -548,7 +548,7 @@ fn test_login_packet_attributes() {
 
 #[test]
 fn test_password_hash() {
-    assert_eq!(LoginAccount::ror([253u8; 16], "1234567812345678").unwrap(),
+    assert_eq!(LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 
     let la = LoginAccount::new("username",
@@ -562,8 +562,8 @@ fn test_password_hash() {
     assert_eq!(la.password_md5_hash_validator(),
                [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]);
 
-    assert_eq!(TagAdapterInfo::hash_mac_address([6, 5, 4, 3, 2, 1],
-                                                [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-                                                 15, 16]),
+    assert_eq!(TagAdapterInfo::hash_mac_address(&[6, 5, 4, 3, 2, 1],
+                                                &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+                                                  15, 16]),
                [7, 7, 7, 7, 7, 7]);
 }
