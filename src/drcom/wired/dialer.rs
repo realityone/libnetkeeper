@@ -145,7 +145,7 @@ macro_rules! validate_field_value_overflow {
 
 macro_rules! configable_field {
     (
-        $( $field:ident, $ty:ty );*
+        $( $field:ident: $ty:ty );*
     ) => {
         $(
             pub fn $field(&mut self, value: $ty) -> &mut Self {
@@ -509,19 +509,19 @@ impl LoginAccount {
     }
 
     configable_field!(
-        hash_salt, [u8; 4];
-        adapter_count, u8;
-        mac_address, [u8; 6];
+        hash_salt: [u8; 4];
+        adapter_count: u8;
+        mac_address: [u8; 6];
     // ipaddresses, [Ipv4Addr; 4];
-        dog_flag, u8;
-        client_version, u8;
-        dog_version, u8;
-        control_check_status, u8;
-        auto_logout, Option<bool>;
-        broadcast_mode, Option<bool>;
-        random, Option<u16>;
-        ror_version, bool;
-        auth_extra_options, Option<u16>
+        dog_flag: u8;
+        client_version: u8;
+        dog_version: u8;
+        control_check_status: u8;
+        auto_logout: Option<bool>;
+        broadcast_mode: Option<bool>;
+        random: Option<u16>;
+        ror_version: bool;
+        auth_extra_options: Option<u16>
         );
 }
 
