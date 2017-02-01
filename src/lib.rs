@@ -11,7 +11,6 @@ extern crate time;
 extern crate byteorder;
 extern crate rand;
 
-pub mod common;
 #[cfg(feature="drcom")]
 pub mod drcom;
 #[cfg(feature="netkeeper")]
@@ -25,6 +24,7 @@ pub mod singlenet;
 #[cfg(feature="srun3k")]
 pub mod srun3k;
 
+pub mod common;
 mod crypto;
 
 #[cfg(test)]
