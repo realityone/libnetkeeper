@@ -1,6 +1,7 @@
 use std::{io, result};
 use std::net::Ipv4Addr;
 use std::str::FromStr;
+use std::num::Wrapping;
 
 use rand;
 use rand::Rng;
@@ -52,7 +53,7 @@ pub struct TagHostInfo {
 }
 
 #[derive(Debug)]
-struct TagLDAPAuth {
+struct TagLDAPAuthInfo {
     password_ror_hash: Vec<u8>,
 }
 
@@ -73,19 +74,31 @@ struct TagAdapterInfo {
 
 #[derive(Debug)]
 struct TagAuthExtraInfo {
-    crc: u32,
+    check_sum: u32,
     mac_address: [u8; 6],
     option: u16,
 }
 
 #[derive(Debug)]
+struct TagAuthVersionInfo {
+    client_version: u8,
+    dog_version: u8,
+}
+
+#[derive(Debug)]
 struct LoginRequest {
+    mac_address: [u8; 6],
     account_info: TagAccountInfo,
     control_check_status: u8,
     adapter_info: TagAdapterInfo,
     dog_flag: u8,
     host_info: TagHostInfo,
-    mac_address: [u8; 6],
+    auth_version_info: TagAuthVersionInfo,
+    auto_logout: bool,
+    broadcast_mode: bool,
+    random: u16,
+    ldap_auth_info: Option<TagLDAPAuthInfo>,
+    auth_extra_options: Option<u16>,
 }
 
 #[derive(Debug)]
@@ -96,6 +109,15 @@ pub struct LoginAccount {
     adapter_counts: u8,
     mac_address: [u8; 6],
     ipaddresses: [Ipv4Addr; 4],
+    dog_flag: u8,
+    client_version: u8,
+    dog_version: u8,
+    control_check_status: u8,
+    auto_logout: Option<bool>,
+    broadcast_mode: Option<bool>,
+    random: Option<u16>,
+    ror_version: bool,
+    auth_extra_options: Option<u16>,
 }
 
 const SERVICE_PACK_MAX_LEN: usize = 32;
@@ -318,9 +340,9 @@ impl Default for TagHostInfo {
     }
 }
 
-impl TagLDAPAuth {
-    fn new(password_ror_hash: Vec<u8>) -> Self {
-        TagLDAPAuth { password_ror_hash: password_ror_hash }
+impl TagLDAPAuthInfo {
+    fn new(password_ror_hash: &[u8]) -> Self {
+        TagLDAPAuthInfo { password_ror_hash: password_ror_hash.to_vec() }
     }
 
     fn validate(&self) -> LoginResult<()> {
@@ -356,21 +378,31 @@ impl LoginAccount {
         Ok(())
     }
 
+    #[allow(too_many_arguments)]
     fn new(username: &str,
            password: &str,
            hash_salt: [u8; 4],
+           ipaddresses: &[Ipv4Addr],
+           mac_address: [u8; 6],
+           dog_flag: u8,
+           client_version: u8,
+           dog_version: u8,
            adapter_counts: Option<u8>,
-           ipaddresses: Vec<Ipv4Addr>,
-           mac_address: Option<[u8; 6]>)
+           control_check_status: u8,
+           auto_logout: Option<bool>,
+           broadcast_mode: Option<bool>,
+           random: Option<u16>,
+           ror_version: Option<bool>,
+           auth_extra_options: Option<u16>)
            -> Self {
         let username = username.to_string();
         let password = password.to_string();
         let adapter_counts = adapter_counts.unwrap_or(1);
-        let mac_address = mac_address.unwrap_or([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80]);
         let mut fixed_ipaddresses = [Ipv4Addr::from(0x0); 4];
         for (i, ip) in ipaddresses.into_iter().take(4).enumerate() {
-            fixed_ipaddresses[i] = ip;
+            fixed_ipaddresses[i] = *ip;
         }
+        let ror_version = ror_version.unwrap_or(false);
 
         LoginAccount {
             username: username,
@@ -379,6 +411,15 @@ impl LoginAccount {
             adapter_counts: adapter_counts,
             mac_address: mac_address,
             ipaddresses: fixed_ipaddresses,
+            dog_flag: dog_flag,
+            client_version: client_version,
+            dog_version: dog_version,
+            control_check_status: control_check_status,
+            auto_logout: auto_logout,
+            broadcast_mode: broadcast_mode,
+            random: random,
+            ror_version: ror_version,
+            auth_extra_options: auth_extra_options,
         }
     }
 
@@ -426,8 +467,12 @@ impl LoginAccount {
         Ok(TagAccountInfo::new(&self.username, self.password_md5_hash()))
     }
 
-    fn tag_ldap_auth(&self) -> LoginResult<TagLDAPAuth> {
-        Ok(TagLDAPAuth::new(try!(self.password_ror_hash())))
+    fn tag_auth_version(&self) -> LoginResult<TagAuthVersionInfo> {
+        Ok(TagAuthVersionInfo::new(self.client_version, self.dog_version))
+    }
+
+    fn tag_ldap_auth_info(&self) -> LoginResult<TagLDAPAuthInfo> {
+        Ok(TagLDAPAuthInfo::new(&try!(self.password_ror_hash())))
     }
 
     fn tag_adapter_info(&self) -> LoginResult<TagAdapterInfo> {
@@ -436,6 +481,29 @@ impl LoginAccount {
                                self.mac_address,
                                self.password_md5_hash_validator(),
                                self.ipaddresses))
+    }
+
+    fn tag_host_info(&self) -> LoginResult<TagHostInfo> {
+        Ok(TagHostInfo::default())
+    }
+
+    fn login_request(&self) -> LoginResult<LoginRequest> {
+        Ok(LoginRequest::new(self.mac_address,
+                             try!(self.tag_account_info()),
+                             try!(self.tag_adapter_info()),
+                             self.dog_version,
+                             try!(self.tag_host_info()),
+                             try!(self.tag_auth_version()),
+                             self.control_check_status,
+                             self.auto_logout,
+                             self.broadcast_mode,
+                             self.random,
+                             if self.ror_version {
+                                 Some(try!(self.tag_ldap_auth_info()))
+                             } else {
+                                 None
+                             },
+                             self.auth_extra_options))
     }
 }
 
@@ -528,12 +596,33 @@ impl TagAdapterInfo {
     }
 }
 
+impl TagAuthVersionInfo {
+    fn new(client_version: u8, dog_version: u8) -> Self {
+        TagAuthVersionInfo {
+            client_version: client_version,
+            dog_version: dog_version,
+        }
+    }
+
+    fn attribute_length() -> usize {
+        1 + // client version
+        1 // dog version
+    }
+
+    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+        let mut result = Vec::with_capacity(Self::attribute_length());
+        result.push(self.client_version);
+        result.push(self.dog_version);
+        Ok(result)
+    }
+}
+
 
 impl TagAuthExtraInfo {
-    fn new(crc: u32, mac_address: [u8; 6], option: Option<u16>) -> Self {
+    fn new(check_sum: u32, mac_address: [u8; 6], option: Option<u16>) -> Self {
         let option = option.unwrap_or(0u16);
         TagAuthExtraInfo {
-            crc: crc,
+            check_sum: check_sum,
             option: option,
             mac_address: mac_address,
         }
@@ -562,10 +651,123 @@ impl TagAuthExtraInfo {
         let mut result = Vec::with_capacity(Self::attribute_length());
         result.push(Self::code());
         result.push(Self::content_length() as u8);
-        result.extend(self.crc.as_bytes_le());
+        result.extend(self.check_sum.as_bytes_le());
         // padding?
         result.extend_from_slice(&[0, 0]);
         result.extend_from_slice(&self.mac_address);
+
+        Ok(result)
+    }
+}
+
+impl LoginRequest {
+    fn caculate_check_sum(data: &[u8], initial: Option<u32>) -> u32 {
+        let mut result = Wrapping(initial.unwrap_or(1234u32));
+        for chunk in data.chunks(4) {
+            let mut chunk_vec = chunk.to_vec();
+            chunk_vec.extend(vec![0u8; 4 - chunk.len()]);
+            chunk_vec.reverse();
+            result ^= Wrapping(u32::from_str_radix(&chunk_vec.to_hex(), 16).unwrap());
+        }
+        result *= Wrapping(1968);
+        result.0
+    }
+
+    #[allow(too_many_arguments)]
+    fn new(mac_address: [u8; 6],
+           account_info: TagAccountInfo,
+           adapter_info: TagAdapterInfo,
+           dog_flag: u8,
+           host_info: TagHostInfo,
+           auth_version_info: TagAuthVersionInfo,
+           control_check_status: u8,
+           auto_logout: Option<bool>,
+           broadcast_mode: Option<bool>,
+           random: Option<u16>,
+           ldap_auth_info: Option<TagLDAPAuthInfo>,
+           auth_extra_options: Option<u16>)
+           -> Self {
+        let auto_logout = auto_logout.unwrap_or(false);
+        let broadcast_mode = broadcast_mode.unwrap_or(false);
+        let random = random.unwrap_or(0x13e9u16);
+        LoginRequest {
+            mac_address: mac_address,
+            account_info: account_info,
+            control_check_status: control_check_status,
+            adapter_info: adapter_info,
+            dog_flag: dog_flag,
+            host_info: host_info,
+            auth_version_info: auth_version_info,
+            auto_logout: auto_logout,
+            broadcast_mode: broadcast_mode,
+            random: random,
+            ldap_auth_info: ldap_auth_info,
+            auth_extra_options: auth_extra_options,
+        }
+    }
+
+    fn packet_length(&self) -> usize {
+        2 + // magic number
+        self.account_info.attribute_length() + 
+        1 + // control_check_status
+        TagAdapterInfo::attribute_length() + 
+        match self.ldap_auth_info {
+            Some(ref l) => l.attribute_length(),
+            None => 0,
+        } +
+        TagAuthExtraInfo::attribute_length() + 
+        1 + // auto logout
+        1 + // broadcast mode
+        2 // random number
+    }
+
+    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+        let mut result = Vec::with_capacity(self.packet_length());
+
+        // Phase 1
+        {
+            result.extend(LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
+            result.extend(try!(self.account_info.as_bytes()));
+            result.push(self.control_check_status);
+            result.extend(try!(self.adapter_info.as_bytes()));
+        }
+
+        // Phase 2
+        {
+            const PHASE_TWO_HASH_SALT: [u8; 4] = [0x14, 0x00, 0x07, 0x0b];
+            let mut md5 = HasherBuilder::build(HasherType::MD5);
+            md5.update(&result);
+            md5.update(&PHASE_TWO_HASH_SALT);
+            let md5_digest = md5.finish();
+            result.extend_from_slice(&md5_digest[..8]);
+        }
+
+        // Phase 3
+        {
+            result.push(self.dog_flag);
+            // padding?
+            result.extend_from_slice(&[0u8; 4]);
+            result.extend(try!(self.host_info.as_bytes()));
+            result.extend(try!(self.auth_version_info.as_bytes()));
+            if let Some(ref l) = self.ldap_auth_info {
+                result.extend(try!(l.as_bytes()))
+            };
+        }
+
+        // Phase 4
+        {
+            let auth_extra_info = TagAuthExtraInfo::new(Self::caculate_check_sum(&result, None),
+                                                        self.mac_address,
+                                                        self.auth_extra_options);
+            result.extend(try!(auth_extra_info.as_bytes()));
+        }
+
+        // Phase 5
+        {
+            result.push(self.auto_logout as u8);
+            result.push(self.broadcast_mode as u8);
+            result.extend(self.random.as_bytes_le());
+        }
 
         Ok(result)
     }
@@ -598,14 +800,23 @@ fn test_login_packet_attributes() {
     let la = LoginAccount::new("usernameusername",
                                "password",
                                [1, 2, 3, 4],
+                               &[Ipv4Addr::from_str("10.30.22.17").unwrap()],
+                               [0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80],
+                               0x1,
+                               0xa,
+                               0x0,
                                Some(1),
-                               vec![Ipv4Addr::from_str("10.30.22.17").unwrap()],
-                               Some([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80]));
+                               0x20,
+                               Some(false),
+                               Some(false),
+                               None,
+                               Some(false),
+                               Some(0x0));
     assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
                vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
                     177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
                     109, 101]);
-    assert_eq!(la.tag_ldap_auth().unwrap().as_bytes().unwrap(),
+    assert_eq!(la.tag_ldap_auth_info().unwrap().as_bytes().unwrap(),
                vec![0, 8, 246, 118, 31, 45, 254, 12, 137, 112]);
     assert_eq!(la.tag_adapter_info().unwrap().as_bytes().unwrap(),
                vec![1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59, 106, 173, 172, 242,
@@ -621,9 +832,18 @@ fn test_password_hash() {
     let la = LoginAccount::new("username",
                                "password",
                                [1, 2, 3, 4],
+                               &[Ipv4Addr::from(0x12345678)],
+                               [0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80],
+                               0x1,
+                               0xa,
+                               0x0,
+                               Some(1),
+                               0x20,
+                               Some(false),
+                               Some(false),
                                None,
-                               vec![Ipv4Addr::from(0x12345678)],
-                               None);
+                               Some(false),
+                               Some(0x0));
     assert_eq!(la.password_md5_hash(),
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
     assert_eq!(la.password_md5_hash_validator(),
@@ -633,4 +853,11 @@ fn test_password_hash() {
                                                 &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
                                                   15, 16]),
                [7, 7, 7, 7, 7, 7]);
+}
+
+#[test]
+fn test_data_check_sum() {
+    assert_eq!(LoginRequest::caculate_check_sum(b"fdkjfkasdfdiaufiufiusafiuiasufisauifuiuaif",
+                                                None),
+               4114876992);
 }
