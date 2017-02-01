@@ -391,51 +391,6 @@ impl LoginAccount {
         Ok(())
     }
 
-    // #[allow(too_many_arguments)]
-    // pub fn new(username: &str,
-    //            password: &str,
-    //            hash_salt: [u8; 4],
-    //            ipaddresses: &[Ipv4Addr],
-    //            mac_address: [u8; 6],
-    //            dog_flag: u8,
-    //            client_version: u8,
-    //            dog_version: u8,
-    //            adapter_count: Option<u8>,
-    //            control_check_status: u8,
-    //            auto_logout: Option<bool>,
-    //            broadcast_mode: Option<bool>,
-    //            random: Option<u16>,
-    //            ror_version: Option<bool>,
-    //            auth_extra_options: Option<u16>)
-    //            -> Self {
-    //     let username = username.to_string();
-    //     let password = password.to_string();
-    //     let adapter_count = adapter_count.unwrap_or(1);
-    //     let mut fixed_ipaddresses = [Ipv4Addr::from(0x0); 4];
-    //     for (i, ip) in ipaddresses.into_iter().take(4).enumerate() {
-    //         fixed_ipaddresses[i] = *ip;
-    //     }
-    //     let ror_version = ror_version.unwrap_or(false);
-
-    //     LoginAccount {
-    //         username: username,
-    //         password: password,
-    //         hash_salt: hash_salt,
-    //         adapter_count: adapter_count,
-    //         mac_address: mac_address,
-    //         ipaddresses: fixed_ipaddresses,
-    //         dog_flag: dog_flag,
-    //         client_version: client_version,
-    //         dog_version: dog_version,
-    //         control_check_status: control_check_status,
-    //         auto_logout: auto_logout,
-    //         broadcast_mode: broadcast_mode,
-    //         random: random,
-    //         ror_version: ror_version,
-    //         auth_extra_options: auth_extra_options,
-    //     }
-    // }
-
     fn ror(md5_digest: &[u8; 16], password: &str) -> LoginResult<Vec<u8>> {
         if password.len() > PASSWORD_MAX_LEN {
             return Err(LoginError::FieldValueOverflow(password.len(), PASSWORD_MAX_LEN));
