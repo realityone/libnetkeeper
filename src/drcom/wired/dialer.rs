@@ -102,6 +102,11 @@ pub struct LoginRequest {
 }
 
 #[derive(Debug)]
+pub struct LoginResponse {
+    pub keep_alive_key: [u8; 6],
+}
+
+#[derive(Debug)]
 pub struct LoginAccount {
     username: String,
     password: String,
@@ -799,6 +804,31 @@ impl LoginRequest {
     }
 }
 
+impl DrCOMResponseCommon for LoginResponse {}
+impl DrCOMCommon for LoginResponse {
+    fn code() -> u8 {
+        4u8
+    }
+}
+
+impl LoginResponse {
+    pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> LoginResult<Self>
+        where R: io::Read
+    {
+        // validate packet and consume 1 byte
+        try!(Self::validate_stream(input, |c| c == Self::code())
+            .map_err(LoginError::ValidateError));
+
+        // drain unknow bytes
+        try!(input.read_bytes(22).map_err(LoginError::PacketReadError));
+
+        let key_bytes = try!(input.read_bytes(6).map_err(LoginError::PacketReadError));
+        let mut keep_alive_key = [0u8; 6];
+        keep_alive_key.clone_from_slice(&key_bytes);
+
+        Ok(LoginResponse { keep_alive_key: keep_alive_key })
+    }
+}
 
 #[test]
 fn test_login_packet_attributes() {

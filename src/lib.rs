@@ -425,7 +425,9 @@ mod tests {
     fn test_drcom_wired_login() {
         use std::net::Ipv4Addr;
         use std::str::FromStr;
-        use drcom::wired::dialer::LoginAccount;
+        use std::io::BufReader;
+        use drcom::wired::dialer::{LoginAccount, LoginResponse};
+
         let mut la = LoginAccount::create("usernameusername", "password");
         la.hash_salt([1, 2, 3, 4])
             .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
@@ -484,6 +486,15 @@ mod tests {
                      10, 0, 0, 8, 246, 118, 31, 45, 254, 12, 137, 112, 2, 12, 112, 131, 51, 46, 0,
                      0, 184, 136, 227, 5, 22, 128, 0, 0, 233, 19];
             assert_eq!(lr2.unwrap().as_bytes().unwrap(), origin_bytes2);
+        }
+
+        {
+            let fake_response: Vec<u8> = vec![4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+                                              15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+                                              28, 29, 30, 31];
+            let mut buffer = BufReader::new(&fake_response as &[u8]);
+            let cr = LoginResponse::from_bytes(&mut buffer).unwrap();
+            assert_eq!(cr.keep_alive_key, [23, 24, 25, 26, 27, 28]);
         }
     }
 }
