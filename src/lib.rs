@@ -422,7 +422,5 @@ mod tests {
     }
 
     #[test]
-    fn test_drcom_wired_login() {
-
-    }
+    fn test_drcom_wired_login() {}
 }

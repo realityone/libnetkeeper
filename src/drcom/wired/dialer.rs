@@ -72,9 +72,20 @@ struct TagAdapterInfo {
 }
 
 #[derive(Debug)]
+struct TagAuthExtraInfo {
+    crc: u32,
+    mac_address: [u8; 6],
+    option: u16,
+}
+
+#[derive(Debug)]
 struct LoginRequest {
     account_info: TagAccountInfo,
-    control_check_status: u8, // adapter_info
+    control_check_status: u8,
+    adapter_info: TagAdapterInfo,
+    dog_flag: u8,
+    host_info: TagHostInfo,
+    mac_address: [u8; 6],
 }
 
 #[derive(Debug)]
@@ -197,8 +208,8 @@ impl TagOSVersionInfo {
     }
 
     #[inline]
-    fn packet_length() -> usize {
-        4 + // packet_length
+    fn attribute_length() -> usize {
+        4 + // attribute_length
         Self::content_length()
     }
 
@@ -223,8 +234,8 @@ impl TagOSVersionInfo {
         content_bytes[16..16 + self.service_pack.len()]
             .copy_from_slice(self.service_pack.as_bytes());
 
-        let mut result = Vec::with_capacity(Self::packet_length());
-        result.extend((Self::packet_length() as u32).as_bytes_le());
+        let mut result = Vec::with_capacity(Self::attribute_length());
+        result.extend((Self::attribute_length() as u32).as_bytes_le());
         result.extend(content_bytes);
 
         Ok(result)
@@ -269,19 +280,19 @@ impl TagHostInfo {
     }
 
     #[inline]
-    fn packet_length() -> usize {
+    fn attribute_length() -> usize {
         32 + // hostname
         4 + // dns_server
         4 + // dhcp_server
         4 + // backup_dns_server
         8 + // wins_ips
-        TagOSVersionInfo::packet_length()
+        TagOSVersionInfo::attribute_length()
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         try!(self.validate());
 
-        let mut result = Vec::with_capacity(Self::packet_length());
+        let mut result = Vec::with_capacity(Self::attribute_length());
 
         let mut hostname_bytes = [0u8; HOSTNAME_MAX_LEN];
         hostname_bytes[..self.hostname.len()].copy_from_slice(self.hostname.as_bytes());
@@ -317,7 +328,7 @@ impl TagLDAPAuth {
         Ok(())
     }
 
-    fn packet_length(&self) -> usize {
+    fn attribute_length(&self) -> usize {
         1 + // code
         1 + // password_ror_hash length
         self.password_ror_hash.len()
@@ -326,7 +337,7 @@ impl TagLDAPAuth {
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         try!(self.validate());
 
-        let mut result = Vec::with_capacity(self.packet_length());
+        let mut result = Vec::with_capacity(self.attribute_length());
         result.push(0u8);
         result.push(self.password_ror_hash.len() as u8);
         result.extend(&self.password_ror_hash);
@@ -446,7 +457,7 @@ impl TagAccountInfo {
         self.password_md5_hash.len() + self.username.len() + 4 // pading?
     }
 
-    fn packet_length(&self) -> usize {
+    fn attribute_length(&self) -> usize {
         2 + // attribute length
         self.content_length()
     }
@@ -454,7 +465,7 @@ impl TagAccountInfo {
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         try!(self.validate());
 
-        let mut result = Vec::with_capacity(self.packet_length());
+        let mut result = Vec::with_capacity(self.attribute_length());
         result.extend((self.content_length() as u16).as_bytes_be());
         result.extend_from_slice(&self.password_md5_hash);
         result.extend_from_slice(self.username.as_bytes());
@@ -478,7 +489,7 @@ impl TagAdapterInfo {
         }
     }
 
-    fn packet_length() -> usize {
+    fn attribute_length() -> usize {
         1 + // adapter counts
         6 + // hashed mac address
         16 + // password_md5_hash_validator
@@ -496,7 +507,7 @@ impl TagAdapterInfo {
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
-        let mut result = Vec::with_capacity(Self::packet_length());
+        let mut result = Vec::with_capacity(Self::attribute_length());
         result.push(self.counts);
         result.extend_from_slice(&Self::hash_mac_address(&self.mac_address, &self.password_md5_hash));
         result.extend_from_slice(&self.password_md5_hash_validator);
@@ -513,6 +524,49 @@ impl TagAdapterInfo {
             result.push(specified_ip_count);
             result.extend(ipaddress_bytes);
         }
+        Ok(result)
+    }
+}
+
+
+impl TagAuthExtraInfo {
+    fn new(crc: u32, mac_address: [u8; 6], option: Option<u16>) -> Self {
+        let option = option.unwrap_or(0u16);
+        TagAuthExtraInfo {
+            crc: crc,
+            option: option,
+            mac_address: mac_address,
+        }
+    }
+
+    #[inline]
+    fn attribute_length() -> usize {
+        1 + // code
+        1 + // content length
+        Self::content_length()
+    }
+
+    #[inline]
+    fn content_length() -> usize {
+        4 + // checksum bytes
+        2 + // option bytes
+        6 // mac_address
+    }
+
+    #[inline]
+    fn code() -> u8 {
+        2u8
+    }
+
+    fn as_bytes(&self) -> LoginResult<Vec<u8>> {
+        let mut result = Vec::with_capacity(Self::attribute_length());
+        result.push(Self::code());
+        result.push(Self::content_length() as u8);
+        result.extend(self.crc.as_bytes_le());
+        // padding?
+        result.extend_from_slice(&[0, 0]);
+        result.extend_from_slice(&self.mac_address);
+
         Ok(result)
     }
 }
