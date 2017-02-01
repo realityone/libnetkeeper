@@ -12,103 +12,39 @@ extern crate byteorder;
 extern crate rand;
 
 pub mod common;
+#[cfg(feature="drcom")]
 pub mod drcom;
+#[cfg(feature="netkeeper")]
 pub mod netkeeper;
+#[cfg(feature="ghca")]
 pub mod ghca;
+#[cfg(feature="ipclient")]
 pub mod ipclient;
+#[cfg(feature="singlenet")]
 pub mod singlenet;
+#[cfg(feature="srun3k")]
 pub mod srun3k;
 
 mod crypto;
 
 #[cfg(test)]
-mod tests {
+#[cfg(feature="netkeeper")]
+mod netkeeper_tests {
     use common::dialer::Dialer;
+    use netkeeper::dialer::{NetkeeperDialer, Configuration};
+    use std::io::BufReader;
+    use crypto::cipher::AES_128_ECB;
+    use netkeeper::heartbeater::{Frame, Packet};
 
     #[test]
     fn test_netkeeper_username_encrypt() {
-        use netkeeper::dialer::{NetkeeperDialer, Configuration};
         let dialer = NetkeeperDialer::load_from_config(Configuration::Zhejiang);
         let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
         assert_eq!(encrypted, "\r\n:R#(P 5005802278989@HYXY.XY");
     }
 
     #[test]
-    fn test_singlenet_username_encrypt() {
-        use singlenet::dialer::{SingleNetDialer, Configuration};
-        let dialer = SingleNetDialer::load_from_config(Configuration::Hainan);
-        let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
-        assert_eq!(encrypted, "~LL_k6ecvpj2mrjA_05802278989@HYXY.XY");
-    }
-
-    #[test]
-    fn test_ghca_username_encrypt() {
-        use ghca::dialer::{GhcaDialer, Configuration};
-        let dialer = GhcaDialer::load_from_config(Configuration::SichuanMac);
-        let encrypted = dialer.encrypt_account("05802278989@HYXY.XY",
-                             "123456",
-                             Some(0x57F486F7),
-                             Some(0x57F48719))
-            .unwrap();
-        let encrypted2 = dialer.encrypt_account("05802278989@HYXY.XY",
-                             "1",
-                             Some(0x57F4B79E),
-                             Some(0x57F4B7B0))
-            .unwrap();
-        let err_result = dialer.encrypt_account("05802278989@HYXY.XY",
-                             "123456123456123456123456123456123456123456123456123456123456123456123456",
-                             Some(0x57F4B79E),
-                             Some(0x57F4B7B0));
-        assert_eq!(encrypted,
-                   "~ghca57F487192023484F1BD1D9AB5DC5013405802278989@HYXY.XY");
-        assert_eq!(encrypted2,
-                   "~ghca57F4B7B020234370C48B10C2AF5E003105802278989@HYXY.XY");
-        assert!(err_result.is_err());
-    }
-
-    #[test]
-    fn test_srun3k_v20_username_encrypt() {
-        use srun3k::dialer::{Srun3kDialer, Configuration};
-
-        let username = "admin";
-        let dialer = Srun3kDialer::load_from_config(Configuration::TaLiMu);
-        let encrypted_result = dialer.encrypt_account_v20(username);
-        assert_eq!(encrypted_result, "{SRUN3}\r\nehqmr");
-    }
-
-    #[test]
-    fn test_ipclient_macopener_packet() {
-        use std::str::FromStr;
-        use std::net::Ipv4Addr;
-        use ipclient::dialer::{MACOpenPacket, ISPCode, Configuration};
-
-        let packet = MACOpenPacket::new("a",
-                                        Ipv4Addr::from_str("172.16.1.1").unwrap(),
-                                        "40:61:86:87:9F:F1",
-                                        ISPCode::CChinaUnicom);
-        let packet_bytes = packet.as_bytes(Configuration::GUET.hash_key()).unwrap();
-
-        let real_bytes: Vec<u8> = vec![97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 172, 16, 1, 1, 52, 48, 58,
-                                       54, 49, 58, 56, 54, 58, 56, 55, 58, 57, 70, 58, 70, 49, 0,
-                                       0, 0, 1, 0, 255, 189, 40, 90];
-
-        assert_eq!(packet_bytes, real_bytes);
-
-        let packet_err = MACOpenPacket::new("05802278989@HYXY.XY05802278989@HYXY.\
-                                             XY05802278989@HYXY.XY05802278989@HYXY.\
-                                             XY05802278989@HYXY.XY",
-                                            Ipv4Addr::from_str("172.16.1.1").unwrap(),
-                                            "40:61:86:87:9F:F1",
-                                            ISPCode::CChinaUnicom);
-        assert!(packet_err.as_bytes(Configuration::GUET.hash_key()).is_err());
-    }
-
-    #[test]
     fn test_netkeeper_heartbeat() {
-        use netkeeper::heartbeater::{Frame, Packet};
-        use crypto::cipher::AES_128_ECB;
-
         let mut frame = Frame::new("HEARTBEAT", None);
         frame.add("USER_NAME", "05802278989@HYXY.XY");
         frame.add("PASSWORD", "123456");
@@ -139,12 +75,7 @@ mod tests {
 
     #[test]
     fn test_netkeeper_heartbeat_parse() {
-        use std::io::BufReader;
-        use netkeeper::heartbeater::Packet;
-        use crypto::cipher::AES_128_ECB;
-
         let encrypter = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
-
         let origin_bytes: Vec<u8> =
             vec![72, 82, 51, 48, 2, 5, 0, 0, 0, 160, 66, 100, 164, 73, 167, 41, 222, 211, 188, 8,
                  14, 110, 252, 246, 121, 119, 79, 18, 254, 193, 72, 163, 54, 136, 248, 60, 221,
@@ -160,17 +91,30 @@ mod tests {
         let mut buffer = BufReader::new(&origin_bytes as &[u8]);
         let packet = Packet::from_bytes(&mut buffer, &encrypter, None).unwrap();
         let packet_bytes = packet.as_bytes(&encrypter).unwrap();
-
         assert_eq!(packet_bytes, origin_bytes);
     }
+}
+
+#[cfg(test)]
+#[cfg(feature="singlenet")]
+mod singlenet_tests {
+    use common::dialer::Dialer;
+    use singlenet::dialer::{SingleNetDialer, Configuration};
+    use std::io::BufReader;
+    use std::str::FromStr;
+    use std::net::Ipv4Addr;
+    use singlenet::heartbeater::{PacketFactoryMac, PacketFactoryWin, PacketAuthenticator, Packet};
+
+    #[test]
+    fn test_singlenet_username_encrypt() {
+        let dialer = SingleNetDialer::load_from_config(Configuration::Hainan);
+        let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
+        assert_eq!(encrypted, "~LL_k6ecvpj2mrjA_05802278989@HYXY.XY");
+    }
+
 
     #[test]
     fn test_keepalive_request_generate_and_parse() {
-        use std::io::BufReader;
-        use std::str::FromStr;
-        use std::net::Ipv4Addr;
-        use singlenet::heartbeater::{PacketFactoryWin, PacketAuthenticator, Packet};
-
         let ka1 = PacketFactoryWin::keepalive_request("05802278989@HYXY.XY",
                                                       Ipv4Addr::from_str("10.0.0.1").unwrap(),
                                                       Some(1472483020),
@@ -210,10 +154,6 @@ mod tests {
 
     #[test]
     fn test_register_request() {
-        use std::str::FromStr;
-        use std::net::Ipv4Addr;
-        use singlenet::heartbeater::{PacketFactoryMac, PacketAuthenticator};
-
         let authenticator = PacketAuthenticator::new("LLWLXA");
         let reg = PacketFactoryMac::register_request("05802278989@HYXY.XY",
                                                      Ipv4Addr::from_str("10.8.0.4").unwrap(),
@@ -237,10 +177,6 @@ mod tests {
 
     #[test]
     fn test_real_time_bubble_request() {
-        use std::str::FromStr;
-        use std::net::Ipv4Addr;
-        use singlenet::heartbeater::{PacketFactoryMac, PacketAuthenticator};
-
         let authenticator = PacketAuthenticator::new("LLWLXA");
         let reg = PacketFactoryMac::real_time_bubble_request("05802278989@HYXY.XY",
                                                              Ipv4Addr::from_str("10.8.0.4")
@@ -259,9 +195,7 @@ mod tests {
 
     #[test]
     fn test_bubble_request() {
-        use std::str::FromStr;
-        use std::net::Ipv4Addr;
-        use singlenet::heartbeater::{PacketFactoryMac, PacketAuthenticator};
+
 
         let authenticator = PacketAuthenticator::new("LLWLXA");
         let reg = PacketFactoryMac::bubble_request("05802278989@HYXY.XY",
@@ -277,224 +211,306 @@ mod tests {
                  48, 58, 100, 100, 58, 98, 49, 58, 100, 53, 58, 57, 53, 58, 99, 97];
         assert_eq!(reg_bytes, real_bytes);
     }
+}
+
+#[cfg(test)]
+#[cfg(feature="ghca")]
+mod ghca_tests {
+    use common::dialer::Dialer;
+    use ghca::dialer::{GhcaDialer, Configuration};
 
     #[test]
-    fn test_drcom_pppoe_challenge() {
+    fn test_ghca_username_encrypt() {
+        let dialer = GhcaDialer::load_from_config(Configuration::SichuanMac);
+        let encrypted = dialer.encrypt_account("05802278989@HYXY.XY",
+                             "123456",
+                             Some(0x57F486F7),
+                             Some(0x57F48719))
+            .unwrap();
+        let encrypted2 = dialer.encrypt_account("05802278989@HYXY.XY",
+                             "1",
+                             Some(0x57F4B79E),
+                             Some(0x57F4B7B0))
+            .unwrap();
+        let err_result = dialer.encrypt_account("05802278989@HYXY.XY",
+                             "123456123456123456123456123456123456123456123456123456123456123456123456",
+                             Some(0x57F4B79E),
+                             Some(0x57F4B7B0));
+        assert_eq!(encrypted,
+                   "~ghca57F487192023484F1BD1D9AB5DC5013405802278989@HYXY.XY");
+        assert_eq!(encrypted2,
+                   "~ghca57F4B7B020234370C48B10C2AF5E003105802278989@HYXY.XY");
+        assert!(err_result.is_err());
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature="srun3k")]
+mod srun3k_tests {
+    use common::dialer::Dialer;
+    use srun3k::dialer::{Srun3kDialer, Configuration};
+
+    #[test]
+    fn test_srun3k_v20_username_encrypt() {
+        let username = "admin";
+        let dialer = Srun3kDialer::load_from_config(Configuration::TaLiMu);
+        let encrypted_result = dialer.encrypt_account_v20(username);
+        assert_eq!(encrypted_result, "{SRUN3}\r\nehqmr");
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature="ipclient")]
+mod ipclient_tests {
+    use std::str::FromStr;
+    use std::net::Ipv4Addr;
+    use ipclient::dialer::{MACOpenPacket, ISPCode, Configuration};
+
+    #[test]
+    fn test_ipclient_macopener_packet() {
+        let packet = MACOpenPacket::new("a",
+                                        Ipv4Addr::from_str("172.16.1.1").unwrap(),
+                                        "40:61:86:87:9F:F1",
+                                        ISPCode::CChinaUnicom);
+        let packet_bytes = packet.as_bytes(Configuration::GUET.hash_key()).unwrap();
+
+        let real_bytes: Vec<u8> = vec![97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 172, 16, 1, 1, 52, 48, 58,
+                                       54, 49, 58, 56, 54, 58, 56, 55, 58, 57, 70, 58, 70, 49, 0,
+                                       0, 0, 1, 0, 255, 189, 40, 90];
+        assert_eq!(packet_bytes, real_bytes);
+        let packet_err = MACOpenPacket::new("05802278989@HYXY.XY05802278989@HYXY.\
+                                             XY05802278989@HYXY.XY05802278989@HYXY.\
+                                             XY05802278989@HYXY.XY",
+                                            Ipv4Addr::from_str("172.16.1.1").unwrap(),
+                                            "40:61:86:87:9F:F1",
+                                            ISPCode::CChinaUnicom);
+        assert!(packet_err.as_bytes(Configuration::GUET.hash_key()).is_err());
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature="drcom")]
+mod drcom_tests {
+    #[cfg(test)]
+    mod pppoe_tests {
         use std::io::BufReader;
         use std::net::Ipv4Addr;
         use std::str::FromStr;
-        use drcom::pppoe::heartbeater::{ChallengeRequest, ChallengeResponse};
-
-        let c = ChallengeRequest::new(Some(1));
-        assert_eq!(vec![7, 1, 8, 0, 1, 0, 0, 0], c.as_bytes());
-
-        let fake_response: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                                          16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-                                          30, 31];
-        let mut buffer = BufReader::new(&fake_response as &[u8]);
-        let cr = ChallengeResponse::from_bytes(&mut buffer).unwrap();
-        assert_eq!(cr.challenge_seed, 185207048);
-        assert_eq!(cr.source_ip, Ipv4Addr::from_str("12.13.14.15").unwrap());
-    }
-
-    #[test]
-    fn test_drcom_pppoe_heartbeat() {
-        use std::net::Ipv4Addr;
-        use std::str::FromStr;
-        use drcom::pppoe::heartbeater::{HeartbeatRequest, HeartbeatFlag};
-
-        let flag_first = HeartbeatFlag::First;
-        let flag_not_first = HeartbeatFlag::NotFirst;
-
-        let hr1 = HeartbeatRequest::new(1,
-                                        Ipv4Addr::from_str("1.2.3.4").unwrap(),
-                                        &flag_first,
-                                        0x04030201u32,
-                                        None,
-                                        None,
-                                        None);
-        let hr2 = HeartbeatRequest::new(1,
-                                        Ipv4Addr::from_str("1.2.3.4").unwrap(),
-                                        &flag_not_first,
-                                        0x04030201u32,
-                                        None,
-                                        None,
-                                        None);
-        let hr3 = HeartbeatRequest::new(1,
-                                        Ipv4Addr::from_str("1.2.3.4").unwrap(),
-                                        &flag_not_first,
-                                        0x04030200u32,
-                                        None,
-                                        None,
-                                        None);
-
-        assert_eq!(hr1.as_bytes(),
-                   vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 98, 0, 42, 1, 2, 3,
-                        4, 192, 90, 161, 223, 81, 42, 143, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0]);
-        assert_eq!(hr2.as_bytes(),
-                   vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 99, 0, 42, 1, 2, 3,
-                        4, 192, 90, 161, 223, 81, 42, 143, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0]);
-        assert_eq!(hr3.as_bytes(),
-                   vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 99, 0, 42, 0, 2, 3,
-                        4, 136, 86, 26, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0]);
-    }
-
-    #[test]
-    fn test_drcom_pppoe_keep_alive() {
-        use std::net::Ipv4Addr;
-        use std::io::BufReader;
-        use std::str::FromStr;
-        use drcom::pppoe::heartbeater::{KeepAliveRequest, KeepAliveResponse,
+        use drcom::pppoe::heartbeater::{ChallengeRequest, ChallengeResponse, HeartbeatRequest,
+                                        HeartbeatFlag, KeepAliveRequest, KeepAliveResponse,
                                         KeepAliveResponseType, KeepAliveRequestFlag};
 
-        let flag_first = KeepAliveRequestFlag::First;
-        let flag_not_first = KeepAliveRequestFlag::NotFirst;
+        #[test]
+        fn test_drcom_pppoe_challenge() {
+            let c = ChallengeRequest::new(Some(1));
+            assert_eq!(vec![7, 1, 8, 0, 1, 0, 0, 0], c.as_bytes());
 
-        let ka1 = KeepAliveRequest::new(1u8, &flag_first, None, None, None);
-        let ka2 = KeepAliveRequest::new(1u8, &flag_first, Some(3), None, None);
-        let ka3 = KeepAliveRequest::new(1u8, &flag_not_first, Some(3), None, None);
-        let ka4 = KeepAliveRequest::new(1u8,
-                                        &flag_not_first,
-                                        Some(3),
-                                        Some(Ipv4Addr::from_str("1.2.3.4").unwrap()),
-                                        Some(0x22221111u32));
-
-        assert_eq!(ka1.as_bytes(),
-                   vec![7, 1, 40, 0, 11, 1, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(ka2.as_bytes(),
-                   vec![7, 1, 40, 0, 11, 3, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 199,
-                        47, 49, 1, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(ka3.as_bytes(),
-                   vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 199,
-                        47, 49, 1, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(ka4.as_bytes(),
-                   vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 17, 17, 34, 34, 82,
-                        139, 161, 42, 71, 175, 94, 167, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-        let fake_response1: Vec<u8> = vec![7, 0, 0x28];
-        let mut buffer1 = BufReader::new(&fake_response1 as &[u8]);
-        let kar1 = KeepAliveResponse::from_bytes(&mut buffer1).unwrap();
-        assert_eq!(kar1.response_type, KeepAliveResponseType::KeepAliveSucceed);
-
-        let fake_response2: Vec<u8> = vec![7, 0, 0x10];
-        let mut buffer2 = BufReader::new(&fake_response2 as &[u8]);
-        let kar2 = KeepAliveResponse::from_bytes(&mut buffer2).unwrap();
-        assert_eq!(kar2.response_type, KeepAliveResponseType::FileResponse);
-
-        let fake_response3: Vec<u8> = vec![7, 0, 0x11];
-        let mut buffer3 = BufReader::new(&fake_response3 as &[u8]);
-        let kar3 = KeepAliveResponse::from_bytes(&mut buffer3).unwrap();
-        assert_eq!(kar3.response_type,
-                   KeepAliveResponseType::UnrecognizedResponse);
-    }
-
-    #[test]
-    fn test_drcom_wired_challenge() {
-        use std::io::BufReader;
-        use drcom::wired::dialer::{ChallengeRequest, ChallengeResponse};
-
-        let c = ChallengeRequest::new(Some(1));
-        assert_eq!(c.as_bytes(),
-                   vec![1, 2, 1, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-        {
-            let fake_response: Vec<u8> = vec![2, 3, 4, 5, 6, 7, 8, 9, 10];
-            let mut buffer = BufReader::new(&fake_response as &[u8]);
-            let cr = ChallengeResponse::from_bytes(&mut buffer).unwrap();
-            assert_eq!(cr.hash_salt, [6u8, 7u8, 8u8, 9u8]);
-        }
-
-        {
-            let fake_response: Vec<u8> = vec![3, 3, 4, 5, 6, 7, 8, 9, 10];
-            let mut buffer = BufReader::new(&fake_response as &[u8]);
-            assert!(ChallengeResponse::from_bytes(&mut buffer).is_err());
-        }
-    }
-
-    #[test]
-    fn test_drcom_wired_login() {
-        use std::net::Ipv4Addr;
-        use std::str::FromStr;
-        use std::io::BufReader;
-        use drcom::wired::dialer::{LoginAccount, LoginResponse};
-
-        let mut la = LoginAccount::create("usernameusername", "password");
-        la.hash_salt([1, 2, 3, 4])
-            .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
-            .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
-            .dog_flag(0x1)
-            .client_version(0xa)
-            .dog_version(0x0)
-            .adapter_count(0x1)
-            .control_check_status(0x20)
-            .auto_logout(Some(false))
-            .broadcast_mode(Some(false))
-            .random(Some(0x13e9))
-            .auth_extra_options(Some(0x0));
-
-        {
-            la.ror_version(false);
-            let lr1 = la.login_request();
-            let origin_bytes1 =
-                vec![3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94,
-                     102, 177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114,
-                     110, 97, 109, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 32, 1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59, 106, 173,
-                     172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76, 73,
-                     89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0,
-                     56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     10, 0, 2, 12, 224, 42, 126, 213, 0, 0, 184, 136, 227, 5, 22, 128, 0, 0, 233,
-                     19];
-            assert_eq!(lr1.unwrap().as_bytes().unwrap(), origin_bytes1);
-        }
-
-        {
-            la.ror_version(true);
-            let lr2 = la.login_request();
-            let origin_bytes2 =
-                vec![3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94,
-                     102, 177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114,
-                     110, 97, 109, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 32, 1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59, 106, 173,
-                     172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76, 73,
-                     89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0,
-                     56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                     10, 0, 0, 8, 246, 118, 31, 45, 254, 12, 137, 112, 2, 12, 112, 131, 51, 46, 0,
-                     0, 184, 136, 227, 5, 22, 128, 0, 0, 233, 19];
-            assert_eq!(lr2.unwrap().as_bytes().unwrap(), origin_bytes2);
-        }
-
-        {
-            let fake_response: Vec<u8> = vec![4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+            let fake_response: Vec<u8> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
                                               15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
                                               28, 29, 30, 31];
             let mut buffer = BufReader::new(&fake_response as &[u8]);
-            let cr = LoginResponse::from_bytes(&mut buffer).unwrap();
-            assert_eq!(cr.keep_alive_key, [23, 24, 25, 26, 27, 28]);
+            let cr = ChallengeResponse::from_bytes(&mut buffer).unwrap();
+            assert_eq!(cr.challenge_seed, 185207048);
+            assert_eq!(cr.source_ip, Ipv4Addr::from_str("12.13.14.15").unwrap());
+        }
+
+        #[test]
+        fn test_drcom_pppoe_heartbeat() {
+            let flag_first = HeartbeatFlag::First;
+            let flag_not_first = HeartbeatFlag::NotFirst;
+
+            let hr1 = HeartbeatRequest::new(1,
+                                            Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                            &flag_first,
+                                            0x04030201u32,
+                                            None,
+                                            None,
+                                            None);
+            let hr2 = HeartbeatRequest::new(1,
+                                            Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                            &flag_not_first,
+                                            0x04030201u32,
+                                            None,
+                                            None,
+                                            None);
+            let hr3 = HeartbeatRequest::new(1,
+                                            Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                            &flag_not_first,
+                                            0x04030200u32,
+                                            None,
+                                            None,
+                                            None);
+
+            assert_eq!(hr1.as_bytes(),
+                       vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 98, 0, 42, 1, 2,
+                            3, 4, 192, 90, 161, 223, 81, 42, 143, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            assert_eq!(hr2.as_bytes(),
+                       vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 99, 0, 42, 1, 2,
+                            3, 4, 192, 90, 161, 223, 81, 42, 143, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            assert_eq!(hr3.as_bytes(),
+                       vec![7, 1, 96, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 99, 0, 42, 0, 2,
+                            3, 4, 136, 86, 26, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0]);
+        }
+
+        #[test]
+        fn test_drcom_pppoe_keep_alive() {
+            let flag_first = KeepAliveRequestFlag::First;
+            let flag_not_first = KeepAliveRequestFlag::NotFirst;
+
+            let ka1 = KeepAliveRequest::new(1u8, &flag_first, None, None, None);
+            let ka2 = KeepAliveRequest::new(1u8, &flag_first, Some(3), None, None);
+            let ka3 = KeepAliveRequest::new(1u8, &flag_not_first, Some(3), None, None);
+            let ka4 = KeepAliveRequest::new(1u8,
+                                            &flag_not_first,
+                                            Some(3),
+                                            Some(Ipv4Addr::from_str("1.2.3.4").unwrap()),
+                                            Some(0x22221111u32));
+
+            assert_eq!(ka1.as_bytes(),
+                       vec![7, 1, 40, 0, 11, 1, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            assert_eq!(ka2.as_bytes(),
+                       vec![7, 1, 40, 0, 11, 3, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            199, 47, 49, 1, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            assert_eq!(ka3.as_bytes(),
+                       vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                            199, 47, 49, 1, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            assert_eq!(ka4.as_bytes(),
+                       vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 17, 17, 34, 34,
+                            82, 139, 161, 42, 71, 175, 94, 167, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0,
+                            0]);
+
+            let fake_response1: Vec<u8> = vec![7, 0, 0x28];
+            let mut buffer1 = BufReader::new(&fake_response1 as &[u8]);
+            let kar1 = KeepAliveResponse::from_bytes(&mut buffer1).unwrap();
+            assert_eq!(kar1.response_type, KeepAliveResponseType::KeepAliveSucceed);
+
+            let fake_response2: Vec<u8> = vec![7, 0, 0x10];
+            let mut buffer2 = BufReader::new(&fake_response2 as &[u8]);
+            let kar2 = KeepAliveResponse::from_bytes(&mut buffer2).unwrap();
+            assert_eq!(kar2.response_type, KeepAliveResponseType::FileResponse);
+
+            let fake_response3: Vec<u8> = vec![7, 0, 0x11];
+            let mut buffer3 = BufReader::new(&fake_response3 as &[u8]);
+            let kar3 = KeepAliveResponse::from_bytes(&mut buffer3).unwrap();
+            assert_eq!(kar3.response_type,
+                       KeepAliveResponseType::UnrecognizedResponse);
+        }
+    }
+
+    #[cfg(test)]
+    mod wired_tests {
+        use std::io::BufReader;
+        use std::net::Ipv4Addr;
+        use std::str::FromStr;
+        use drcom::wired::dialer::{LoginAccount, LoginResponse, ChallengeRequest,
+                                   ChallengeResponse};
+
+        #[test]
+        fn test_drcom_wired_challenge() {
+            let c = ChallengeRequest::new(Some(1));
+            assert_eq!(c.as_bytes(),
+                       vec![1, 2, 1, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+            {
+                let fake_response: Vec<u8> = vec![2, 3, 4, 5, 6, 7, 8, 9, 10];
+                let mut buffer = BufReader::new(&fake_response as &[u8]);
+                let cr = ChallengeResponse::from_bytes(&mut buffer).unwrap();
+                assert_eq!(cr.hash_salt, [6u8, 7u8, 8u8, 9u8]);
+            }
+
+            {
+                let fake_response: Vec<u8> = vec![3, 3, 4, 5, 6, 7, 8, 9, 10];
+                let mut buffer = BufReader::new(&fake_response as &[u8]);
+                assert!(ChallengeResponse::from_bytes(&mut buffer).is_err());
+            }
+        }
+
+        #[test]
+        fn test_drcom_wired_login() {
+            let mut la = LoginAccount::create("usernameusername", "password");
+            la.hash_salt([1, 2, 3, 4])
+                .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+                .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
+                .dog_flag(0x1)
+                .client_version(0xa)
+                .dog_version(0x0)
+                .adapter_count(0x1)
+                .control_check_status(0x20)
+                .auto_logout(Some(false))
+                .broadcast_mode(Some(false))
+                .random(Some(0x13e9))
+                .auth_extra_options(Some(0x0));
+
+            {
+                la.ror_version(false);
+                let lr1 = la.login_request();
+                let origin_bytes1 =
+                    vec![3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172,
+                         94, 102, 177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101,
+                         114, 110, 97, 109, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59,
+                         106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0,
+                         0, 0, 76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0,
+                         40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 2, 12, 224,
+                         42, 126, 213, 0, 0, 184, 136, 227, 5, 22, 128, 0, 0, 233, 19];
+                assert_eq!(lr1.unwrap().as_bytes().unwrap(), origin_bytes1);
+            }
+
+            {
+                la.ror_version(true);
+                let lr2 = la.login_request();
+                let origin_bytes2 =
+                    vec![3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172,
+                         94, 102, 177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101,
+                         114, 110, 97, 109, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59,
+                         106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0,
+                         0, 0, 76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0,
+                         40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 8, 246,
+                         118, 31, 45, 254, 12, 137, 112, 2, 12, 112, 131, 51, 46, 0, 0, 184, 136,
+                         227, 5, 22, 128, 0, 0, 233, 19];
+                assert_eq!(lr2.unwrap().as_bytes().unwrap(), origin_bytes2);
+            }
+
+            {
+                let fake_response: Vec<u8> = vec![4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+                                                  14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+                                                  26, 27, 28, 29, 30, 31];
+                let mut buffer = BufReader::new(&fake_response as &[u8]);
+                let cr = LoginResponse::from_bytes(&mut buffer).unwrap();
+                assert_eq!(cr.keep_alive_key, [23, 24, 25, 26, 27, 28]);
+            }
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {}
