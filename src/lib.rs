@@ -438,9 +438,8 @@ mod drcom_tests {
 
         #[test]
         fn test_drcom_wired_login() {
-            let mut la = LoginAccount::create("usernameusername", "password");
-            la.hash_salt([1, 2, 3, 4])
-                .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+            let mut la = LoginAccount::create("usernameusername", "password", [1, 2, 3, 4]);
+            la.ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
                 .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
                 .dog_flag(0x1)
                 .client_version(0xa)

@@ -451,11 +451,11 @@ impl LoginAccount {
         })
     }
 
-    pub fn create(username: &str, password: &str) -> Self {
+    pub fn create(username: &str, password: &str, hash_salt: [u8; 4]) -> Self {
         LoginAccount {
             username: username.to_string(),
             password: password.to_string(),
-            hash_salt: [0u8; 4],
+            hash_salt: hash_salt,
             adapter_count: 1,
             mac_address: [0, 0, 0, 0, 0, 0],
             ipaddresses: [Ipv4Addr::from(0x0); 4],
@@ -751,9 +751,8 @@ impl LoginResponse {
 
 #[test]
 fn test_login_packet_attributes() {
-    let mut la = LoginAccount::create("usernameusername", "password");
-    la.hash_salt([1, 2, 3, 4])
-        .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+    let mut la = LoginAccount::create("usernameusername", "password", [1, 2, 3, 4]);
+    la.ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
         .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
         .dog_flag(0x1)
         .client_version(0xa)
@@ -797,9 +796,8 @@ fn test_password_hash() {
     assert_eq!(LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 
-    let mut la = LoginAccount::create("usernameusername", "password");
-    la.hash_salt([1, 2, 3, 4])
-        .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
+    let mut la = LoginAccount::create("usernameusername", "password", [1, 2, 3, 4]);
+    la.ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
         .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
         .dog_flag(0x1)
         .client_version(0xa)
