@@ -490,8 +490,7 @@ impl LoginAccount {
         self
     }
 
-    configurable_field!(hash_salt: [u8; 4],
-                        adapter_count: u8,
+    configurable_field!(adapter_count: u8,
                         mac_address: [u8; 6],
                         dog_flag: u8,
                         client_version: u8,
@@ -809,6 +808,7 @@ fn test_password_hash() {
         .random(0x13e9)
         .ror_version(false)
         .auth_extra_option(0x0);
+
     assert_eq!(la.password_md5_hash(),
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
     assert_eq!(la.password_md5_hash_validator(),
@@ -818,6 +818,12 @@ fn test_password_hash() {
                                                 &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
                                                   15, 16]),
                [7, 7, 7, 7, 7, 7]);
+
+    {
+        let la = LoginAccount::new("usernameusername", "password", [0x7, 0x8, 0x9, 0x10]);
+        assert_eq!(la.password_md5_hash(),
+                   [227, 154, 169, 77, 33, 112, 224, 233, 249, 52, 229, 206, 20, 132, 105, 72]);
+    }
 }
 
 #[test]
