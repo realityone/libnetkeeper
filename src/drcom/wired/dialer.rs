@@ -333,6 +333,36 @@ impl TagLDAPAuthInfo {
 
 
 impl LoginAccount {
+    pub fn new(username: &str, password: &str, hash_salt: [u8; 4]) -> Self {
+        LoginAccount {
+            username: username.to_string(),
+            password: password.to_string(),
+            hash_salt: hash_salt,
+            adapter_count: 1,
+            mac_address: [0, 0, 0, 0, 0, 0],
+            ipaddresses: [Ipv4Addr::from(0x0); 4],
+            dog_flag: 0x1,
+            client_version: 0xa,
+            dog_version: 0x0,
+            control_check_status: 0x20,
+            ror_version: false,
+            hostname: String::from("LIYUANYUAN"),
+            service_pack: String::from("8089D"),
+            dns_server: Ipv4Addr::from_str("114.114.114.114").unwrap(),
+            dhcp_server: Ipv4Addr::from(0x0),
+            backup_dns_server: Ipv4Addr::from(0x0),
+            wins_ips: [Ipv4Addr::from(0x0); 2],
+            major_version: 0x05,
+            minor_version: 0x1,
+            build_number: 0x0a28,
+            platform_id: 0x2,
+            auto_logout: false,
+            broadcast_mode: false,
+            random: 0x13e9,
+            auth_extra_option: 0x0u16,
+        }
+    }
+
     fn validate(&self) -> LoginResult<()> {
         validate_field_value_overflow!(
             self.username, USERNAME_MAX_LEN;
@@ -449,36 +479,6 @@ impl LoginAccount {
             },
             auth_extra_option: self.auth_extra_option,
         })
-    }
-
-    pub fn create(username: &str, password: &str, hash_salt: [u8; 4]) -> Self {
-        LoginAccount {
-            username: username.to_string(),
-            password: password.to_string(),
-            hash_salt: hash_salt,
-            adapter_count: 1,
-            mac_address: [0, 0, 0, 0, 0, 0],
-            ipaddresses: [Ipv4Addr::from(0x0); 4],
-            dog_flag: 0x1,
-            client_version: 0xa,
-            dog_version: 0x0,
-            control_check_status: 0x20,
-            ror_version: false,
-            hostname: String::from("LIYUANYUAN"),
-            service_pack: String::from("8089D"),
-            dns_server: Ipv4Addr::from_str("114.114.114.114").unwrap(),
-            dhcp_server: Ipv4Addr::from(0x0),
-            backup_dns_server: Ipv4Addr::from(0x0),
-            wins_ips: [Ipv4Addr::from(0x0); 2],
-            major_version: 0x05,
-            minor_version: 0x1,
-            build_number: 0x0a28,
-            platform_id: 0x2,
-            auto_logout: false,
-            broadcast_mode: false,
-            random: 0x13e9,
-            auth_extra_option: 0x0u16,
-        }
     }
 
     pub fn ipaddresses(&mut self, value: &[Ipv4Addr]) -> &mut Self {
@@ -751,7 +751,7 @@ impl LoginResponse {
 
 #[test]
 fn test_login_packet_attributes() {
-    let mut la = LoginAccount::create("usernameusername", "password", [1, 2, 3, 4]);
+    let mut la = LoginAccount::new("usernameusername", "password", [1, 2, 3, 4]);
     la.ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
         .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
         .dog_flag(0x1)
@@ -796,7 +796,7 @@ fn test_password_hash() {
     assert_eq!(LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
                vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
 
-    let mut la = LoginAccount::create("usernameusername", "password", [1, 2, 3, 4]);
+    let mut la = LoginAccount::new("usernameusername", "password", [1, 2, 3, 4]);
     la.ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
         .mac_address([0xb8, 0x88, 0xe3, 0x05, 0x16, 0x80])
         .dog_flag(0x1)
