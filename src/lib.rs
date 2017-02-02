@@ -447,10 +447,10 @@ mod drcom_tests {
                 .dog_version(0x0)
                 .adapter_count(0x1)
                 .control_check_status(0x20)
-                .auto_logout(Some(false))
-                .broadcast_mode(Some(false))
-                .random(Some(0x13e9))
-                .auth_extra_options(Some(0x0));
+                .auto_logout(false)
+                .broadcast_mode(false)
+                .random(0x13e9)
+                .auth_extra_option(0x0);
 
             {
                 la.ror_version(false);

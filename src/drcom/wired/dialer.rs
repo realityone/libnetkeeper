@@ -49,7 +49,6 @@ pub struct TagHostInfo {
     dhcp_server: Ipv4Addr,
     backup_dns_server: Ipv4Addr,
     wins_ips: [Ipv4Addr; 2],
-    os_version: TagOSVersionInfo,
 }
 
 #[derive(Debug)]
@@ -93,12 +92,13 @@ pub struct LoginRequest {
     adapter_info: TagAdapterInfo,
     dog_flag: u8,
     host_info: TagHostInfo,
+    os_version_info: TagOSVersionInfo,
     auth_version_info: TagAuthVersionInfo,
     auto_logout: bool,
     broadcast_mode: bool,
     random: u16,
     ldap_auth_info: Option<TagLDAPAuthInfo>,
-    auth_extra_options: Option<u16>,
+    auth_extra_option: u16,
 }
 
 #[derive(Debug)]
@@ -118,11 +118,21 @@ pub struct LoginAccount {
     client_version: u8,
     dog_version: u8,
     control_check_status: u8,
-    auto_logout: Option<bool>,
-    broadcast_mode: Option<bool>,
-    random: Option<u16>,
     ror_version: bool,
-    auth_extra_options: Option<u16>,
+    hostname: String,
+    service_pack: String,
+    dns_server: Ipv4Addr,
+    dhcp_server: Ipv4Addr,
+    backup_dns_server: Ipv4Addr,
+    wins_ips: [Ipv4Addr; 2],
+    major_version: u32,
+    minor_version: u32,
+    build_number: u32,
+    platform_id: u32,
+    auto_logout: bool,
+    broadcast_mode: bool,
+    random: u16,
+    auth_extra_option: u16,
 }
 
 const SERVICE_PACK_MAX_LEN: usize = 32;
@@ -143,9 +153,9 @@ macro_rules! validate_field_value_overflow {
     }
 }
 
-macro_rules! configable_field {
+macro_rules! configurable_field {
     (
-        $( $field:ident: $ty:ty );*
+        $( $field:ident: $ty:ty ),*
     ) => {
         $(
             pub fn $field(&mut self, value: $ty) -> &mut Self {
@@ -222,26 +232,6 @@ impl ChallengeResponse {
 }
 
 impl TagOSVersionInfo {
-    pub fn new(major_version: Option<u32>,
-               minor_version: Option<u32>,
-               build_number: Option<u32>,
-               platform_id: Option<u32>,
-               service_pack: Option<&str>)
-               -> Self {
-        let major_version = major_version.unwrap_or(0x05);
-        let minor_version = minor_version.unwrap_or(0x01);
-        let build_number = build_number.unwrap_or(0x0a28);
-        let platform_id = platform_id.unwrap_or(0x02);
-        let service_pack = service_pack.unwrap_or("8089D").to_string();
-        TagOSVersionInfo {
-            major_version: major_version,
-            minor_version: minor_version,
-            build_number: build_number,
-            platform_id: platform_id,
-            service_pack: service_pack,
-        }
-    }
-
     fn validate(&self) -> LoginResult<()> {
         validate_field_value_overflow!(self.service_pack, SERVICE_PACK_MAX_LEN);
         Ok(())
@@ -282,38 +272,7 @@ impl TagOSVersionInfo {
     }
 }
 
-impl Default for TagOSVersionInfo {
-    fn default() -> Self {
-        TagOSVersionInfo::new(None, None, None, None, None)
-    }
-}
-
 impl TagHostInfo {
-    pub fn new(hostname: Option<&str>,
-               dns_server: Option<Ipv4Addr>,
-               dhcp_server: Option<Ipv4Addr>,
-               backup_dns_server: Option<Ipv4Addr>,
-               wins_ips: Option<[Ipv4Addr; 2]>,
-               os_version: Option<TagOSVersionInfo>)
-               -> Self {
-        let hostname = hostname.unwrap_or("LIYUANYUAN").to_string();
-        let dns_server =
-            dns_server.unwrap_or_else(|| Ipv4Addr::from_str("114.114.114.114").unwrap());
-        let dhcp_server = dhcp_server.unwrap_or_else(|| Ipv4Addr::from(0x0));
-        let backup_dns_server = backup_dns_server.unwrap_or_else(|| Ipv4Addr::from(0x0));
-        let wins_ips = wins_ips.unwrap_or([Ipv4Addr::from(0x0); 2]);
-        let os_version = os_version.unwrap_or_default();
-
-        TagHostInfo {
-            hostname: hostname,
-            dns_server: dns_server,
-            dhcp_server: dhcp_server,
-            backup_dns_server: backup_dns_server,
-            wins_ips: wins_ips,
-            os_version: os_version,
-        }
-    }
-
     fn validate(&self) -> LoginResult<()> {
         validate_field_value_overflow!(self.hostname, HOSTNAME_MAX_LEN);
         Ok(())
@@ -325,8 +284,7 @@ impl TagHostInfo {
         4 + // dns_server
         4 + // dhcp_server
         4 + // backup_dns_server
-        8 + // wins_ips
-        TagOSVersionInfo::attribute_length()
+        8 // wins_ips
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -345,24 +303,11 @@ impl TagHostInfo {
             result.extend(ip.as_bytes());
         }
 
-        let os_version_bytes = try!(self.os_version.as_bytes());
-        result.extend(os_version_bytes);
-
         Ok(result)
     }
 }
 
-impl Default for TagHostInfo {
-    fn default() -> Self {
-        TagHostInfo::new(None, None, None, None, None, None)
-    }
-}
-
 impl TagLDAPAuthInfo {
-    fn new(password_ror_hash: &[u8]) -> Self {
-        TagLDAPAuthInfo { password_ror_hash: password_ror_hash.to_vec() }
-    }
-
     fn validate(&self) -> LoginResult<()> {
         validate_field_value_overflow!(self.password_ror_hash, PASSWORD_MAX_LEN);
         Ok(())
@@ -437,46 +382,73 @@ impl LoginAccount {
     }
 
     fn tag_account_info(&self) -> LoginResult<TagAccountInfo> {
-        Ok(TagAccountInfo::new(&self.username, self.password_md5_hash()))
+        Ok(TagAccountInfo {
+            username: self.username.clone(),
+            password_md5_hash: self.password_md5_hash(),
+        })
     }
 
     fn tag_auth_version(&self) -> LoginResult<TagAuthVersionInfo> {
-        Ok(TagAuthVersionInfo::new(self.client_version, self.dog_version))
+        Ok(TagAuthVersionInfo {
+            client_version: self.client_version,
+            dog_version: self.dog_version,
+        })
     }
 
     fn tag_ldap_auth_info(&self) -> LoginResult<TagLDAPAuthInfo> {
-        Ok(TagLDAPAuthInfo::new(&try!(self.password_ror_hash())))
+        Ok(TagLDAPAuthInfo { password_ror_hash: try!(self.password_ror_hash()) })
     }
 
     fn tag_adapter_info(&self) -> LoginResult<TagAdapterInfo> {
-        Ok(TagAdapterInfo::new(self.adapter_count,
-                               self.password_md5_hash(),
-                               self.mac_address,
-                               self.password_md5_hash_validator(),
-                               self.ipaddresses))
+        Ok(TagAdapterInfo {
+            counts: self.adapter_count,
+            password_md5_hash: self.password_md5_hash(),
+            mac_address: self.mac_address,
+            password_md5_hash_validator: self.password_md5_hash_validator(),
+            ipaddresses: self.ipaddresses,
+        })
+    }
+
+    fn tag_os_version(&self) -> LoginResult<TagOSVersionInfo> {
+        Ok(TagOSVersionInfo {
+            major_version: self.major_version,
+            minor_version: self.minor_version,
+            build_number: self.build_number,
+            platform_id: self.platform_id,
+            service_pack: self.service_pack.clone(),
+        })
     }
 
     fn tag_host_info(&self) -> LoginResult<TagHostInfo> {
-        Ok(TagHostInfo::default())
+        Ok(TagHostInfo {
+            hostname: self.hostname.clone(),
+            dns_server: self.dns_server,
+            dhcp_server: self.dhcp_server,
+            backup_dns_server: self.backup_dns_server,
+            wins_ips: self.wins_ips,
+        })
     }
 
     pub fn login_request(&self) -> LoginResult<LoginRequest> {
-        Ok(LoginRequest::new(self.mac_address,
-                             try!(self.tag_account_info()),
-                             try!(self.tag_adapter_info()),
-                             self.dog_flag,
-                             try!(self.tag_host_info()),
-                             try!(self.tag_auth_version()),
-                             self.control_check_status,
-                             self.auto_logout,
-                             self.broadcast_mode,
-                             self.random,
-                             if self.ror_version {
-                                 Some(try!(self.tag_ldap_auth_info()))
-                             } else {
-                                 None
-                             },
-                             self.auth_extra_options))
+        Ok(LoginRequest {
+            mac_address: self.mac_address,
+            account_info: try!(self.tag_account_info()),
+            control_check_status: self.control_check_status,
+            adapter_info: try!(self.tag_adapter_info()),
+            dog_flag: self.dog_flag,
+            host_info: try!(self.tag_host_info()),
+            os_version_info: try!(self.tag_os_version()),
+            auth_version_info: try!(self.tag_auth_version()),
+            auto_logout: self.auto_logout,
+            broadcast_mode: self.broadcast_mode,
+            random: self.random,
+            ldap_auth_info: if self.ror_version {
+                Some(try!(self.tag_ldap_auth_info()))
+            } else {
+                None
+            },
+            auth_extra_option: self.auth_extra_option,
+        })
     }
 
     pub fn create(username: &str, password: &str) -> Self {
@@ -491,11 +463,21 @@ impl LoginAccount {
             client_version: 0xa,
             dog_version: 0x0,
             control_check_status: 0x20,
-            auto_logout: Some(false),
-            broadcast_mode: Some(false),
-            random: Some(0x13e9),
             ror_version: false,
-            auth_extra_options: Some(0x0),
+            hostname: String::from("LIYUANYUAN"),
+            service_pack: String::from("8089D"),
+            dns_server: Ipv4Addr::from_str("114.114.114.114").unwrap(),
+            dhcp_server: Ipv4Addr::from(0x0),
+            backup_dns_server: Ipv4Addr::from(0x0),
+            wins_ips: [Ipv4Addr::from(0x0); 2],
+            major_version: 0x05,
+            minor_version: 0x1,
+            build_number: 0x0a28,
+            platform_id: 0x2,
+            auto_logout: false,
+            broadcast_mode: false,
+            random: 0x13e9,
+            auth_extra_option: 0x0u16,
         }
     }
 
@@ -508,32 +490,30 @@ impl LoginAccount {
         self
     }
 
-    configable_field!(
-        hash_salt: [u8; 4];
-        adapter_count: u8;
-        mac_address: [u8; 6];
-    // ipaddresses, [Ipv4Addr; 4];
-        dog_flag: u8;
-        client_version: u8;
-        dog_version: u8;
-        control_check_status: u8;
-        auto_logout: Option<bool>;
-        broadcast_mode: Option<bool>;
-        random: Option<u16>;
-        ror_version: bool;
-        auth_extra_options: Option<u16>
-        );
+    configurable_field!(hash_salt: [u8; 4],
+                        adapter_count: u8,
+                        mac_address: [u8; 6],
+                        dog_flag: u8,
+                        client_version: u8,
+                        dog_version: u8,
+                        control_check_status: u8,
+                        ror_version: bool,
+                        hostname: String,
+                        service_pack: String,
+                        dns_server: Ipv4Addr,
+                        backup_dns_server: Ipv4Addr,
+                        wins_ips: [Ipv4Addr; 2],
+                        major_version: u32,
+                        minor_version: u32,
+                        build_number: u32,
+                        platform_id: u32,
+                        auto_logout: bool,
+                        broadcast_mode: bool,
+                        random: u16,
+                        auth_extra_option: u16);
 }
 
 impl TagAccountInfo {
-    fn new(username: &str, password_md5_hash: [u8; 16]) -> Self {
-        let username = username.to_string();
-        TagAccountInfo {
-            username: username,
-            password_md5_hash: password_md5_hash,
-        }
-    }
-
     fn validate(&self) -> LoginResult<()> {
         validate_field_value_overflow!(self.username, USERNAME_MAX_LEN);
         Ok(())
@@ -560,21 +540,6 @@ impl TagAccountInfo {
 }
 
 impl TagAdapterInfo {
-    fn new(counts: u8,
-           password_md5_hash: [u8; 16],
-           mac_address: [u8; 6],
-           password_md5_hash_validator: [u8; 16],
-           ipaddresses: [Ipv4Addr; 4])
-           -> Self {
-        TagAdapterInfo {
-            counts: counts,
-            password_md5_hash: password_md5_hash,
-            mac_address: mac_address,
-            password_md5_hash_validator: password_md5_hash_validator,
-            ipaddresses: ipaddresses,
-        }
-    }
-
     fn attribute_length() -> usize {
         1 + // adapter counts
         6 + // hashed mac address
@@ -615,13 +580,6 @@ impl TagAdapterInfo {
 }
 
 impl TagAuthVersionInfo {
-    fn new(client_version: u8, dog_version: u8) -> Self {
-        TagAuthVersionInfo {
-            client_version: client_version,
-            dog_version: dog_version,
-        }
-    }
-
     fn attribute_length() -> usize {
         1 + // client version
         1 // dog version
@@ -647,15 +605,6 @@ impl TagAuthExtraInfo {
         }
         result *= Wrapping(1968);
         result.0
-    }
-
-    fn new(origin_data: &[u8], mac_address: [u8; 6], option: Option<u16>) -> Self {
-        let option = option.unwrap_or(0u16);
-        TagAuthExtraInfo {
-            origin_data: origin_data.to_vec(),
-            option: option,
-            mac_address: mac_address,
-        }
     }
 
     #[inline]
@@ -701,39 +650,6 @@ impl TagAuthExtraInfo {
 }
 
 impl LoginRequest {
-    #[allow(too_many_arguments)]
-    fn new(mac_address: [u8; 6],
-           account_info: TagAccountInfo,
-           adapter_info: TagAdapterInfo,
-           dog_flag: u8,
-           host_info: TagHostInfo,
-           auth_version_info: TagAuthVersionInfo,
-           control_check_status: u8,
-           auto_logout: Option<bool>,
-           broadcast_mode: Option<bool>,
-           random: Option<u16>,
-           ldap_auth_info: Option<TagLDAPAuthInfo>,
-           auth_extra_options: Option<u16>)
-           -> Self {
-        let auto_logout = auto_logout.unwrap_or(false);
-        let broadcast_mode = broadcast_mode.unwrap_or(false);
-        let random = random.unwrap_or(0x13e9u16);
-        LoginRequest {
-            mac_address: mac_address,
-            account_info: account_info,
-            control_check_status: control_check_status,
-            adapter_info: adapter_info,
-            dog_flag: dog_flag,
-            host_info: host_info,
-            auth_version_info: auth_version_info,
-            auto_logout: auto_logout,
-            broadcast_mode: broadcast_mode,
-            random: random,
-            ldap_auth_info: ldap_auth_info,
-            auth_extra_options: auth_extra_options,
-        }
-    }
-
     fn packet_length(&self) -> usize {
         2 + // magic number
         self.account_info.attribute_length() + 
@@ -779,6 +695,7 @@ impl LoginRequest {
             // padding?
             result.extend_from_slice(&[0u8; 4]);
             result.extend(try!(self.host_info.as_bytes()));
+            result.extend(try!(self.os_version_info.as_bytes()));
             result.extend(try!(self.auth_version_info.as_bytes()));
             if let Some(ref l) = self.ldap_auth_info {
                 result.extend(try!(l.as_bytes()))
@@ -787,9 +704,11 @@ impl LoginRequest {
 
         // Phase 4
         {
-            let origin_data = result.clone();
-            let auth_extra_info =
-                TagAuthExtraInfo::new(&origin_data, self.mac_address, self.auth_extra_options);
+            let auth_extra_info = TagAuthExtraInfo {
+                origin_data: result.clone(),
+                mac_address: self.mac_address,
+                option: self.auth_extra_option,
+            };
             result.extend(try!(auth_extra_info.as_bytes()));
         }
 
@@ -832,27 +751,6 @@ impl LoginResponse {
 
 #[test]
 fn test_login_packet_attributes() {
-    let tovi = TagOSVersionInfo::default();
-    assert_eq!(tovi.as_bytes().unwrap(),
-               vec![148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56,
-                    57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-
-    let thi = TagHostInfo::default();
-    assert_eq!(thi.as_bytes().unwrap(),
-               vec![76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2,
-                    0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0]);
-
     let mut la = LoginAccount::create("usernameusername", "password");
     la.hash_salt([1, 2, 3, 4])
         .ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
@@ -862,11 +760,26 @@ fn test_login_packet_attributes() {
         .dog_version(0x0)
         .adapter_count(0x1)
         .control_check_status(0x20)
-        .auto_logout(Some(false))
-        .broadcast_mode(Some(false))
-        .random(Some(0x13e9))
+        .auto_logout(false)
+        .broadcast_mode(false)
+        .random(0x13e9)
         .ror_version(false)
-        .auth_extra_options(Some(0x0));
+        .auth_extra_option(0x0);
+
+    assert_eq!(la.tag_os_version().unwrap().as_bytes().unwrap(),
+               vec![148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56,
+                    57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+    assert_eq!(la.tag_host_info().unwrap().as_bytes().unwrap(),
+               vec![76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0]);
+
+
     assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
                vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
                     177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
@@ -893,11 +806,11 @@ fn test_password_hash() {
         .dog_version(0x0)
         .adapter_count(0x1)
         .control_check_status(0x20)
-        .auto_logout(Some(false))
-        .broadcast_mode(Some(false))
-        .random(Some(0x13e9))
+        .auto_logout(false)
+        .broadcast_mode(false)
+        .random(0x13e9)
         .ror_version(false)
-        .auth_extra_options(Some(0x0));
+        .auth_extra_option(0x0);
     assert_eq!(la.password_md5_hash(),
                [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
     assert_eq!(la.password_md5_hash_validator(),
