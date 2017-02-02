@@ -1,6 +1,7 @@
 use std::{result, io};
+use std::net::Ipv4Addr;
 
-use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER};
+use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER, DrCOMFlag};
 use common::utils::current_timestamp;
 // use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::BytesAbleNum;
@@ -21,7 +22,22 @@ pub struct PhaseOneRequest {
     keep_alive_key: [u8; 4],
 }
 
+#[derive(Debug)]
+pub struct PhaseTwoRequest<'a> {
+    sequence: u8,
+    keep_alive_key: [u8; 4],
+    flag: &'a (DrCOMFlag + 'a),
+    type_id: u8,
+    host_ip: Ipv4Addr,
+}
+
 pub struct PhaseOneResponse;
+
+#[derive(Debug)]
+pub enum HeartbeatFlag {
+    First,
+    NotFirst,
+}
 
 impl DrCOMCommon for PhaseOneRequest {
     fn code() -> u8 {
@@ -91,5 +107,92 @@ impl PhaseOneResponse {
         try!(Self::validate_stream(input, |c| c == Self::code())
             .map_err(HeartbeatError::ValidateError));
         Ok(PhaseOneResponse {})
+    }
+}
+
+impl DrCOMFlag for HeartbeatFlag {
+    fn as_u32(&self) -> u32 {
+        match *self {
+            HeartbeatFlag::First => 0x122f270f,
+            HeartbeatFlag::NotFirst => 0x122f02dc,
+        }
+    }
+}
+
+impl<'a> DrCOMCommon for PhaseTwoRequest<'a> {
+    fn code() -> u8 {
+        0x7u8
+    }
+}
+
+impl<'a> PhaseTwoRequest<'a> {
+    pub fn new<F>(sequence: u8,
+                  keep_alive_key: [u8; 4],
+                  flag: &'a F,
+                  host_ip: Ipv4Addr,
+                  type_id: Option<u8>)
+                  -> Self
+        where F: DrCOMFlag
+    {
+        PhaseTwoRequest {
+            sequence: sequence,
+            keep_alive_key: keep_alive_key,
+            flag: flag,
+            type_id: type_id.unwrap_or(1),
+            host_ip: host_ip,
+        }
+    }
+
+    #[inline]
+    fn packet_length() -> usize {
+        1 + // code
+        1 + // sequence
+        2 + // content length
+        1 + // uid length
+        Self::uid_length() +
+        4 + // keep alive key
+        4 + // padding?
+        Self::footer_length()
+    }
+
+    #[inline]
+    fn footer_length() -> usize {
+        4 + // crc
+        4 + // source ip
+        8 // padding?
+    }
+
+    #[inline]
+    fn uid_length() -> usize {
+        1 + // type id
+        4 + // keep alive flag
+        6 // padding?
+    }
+
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(Self::packet_length());
+        result.push(Self::code());
+        result.push(self.sequence);
+        result.extend((Self::packet_length() as u16).as_bytes_le());
+
+        result.push(Self::uid_length() as u8);
+        result.push(self.type_id);
+        result.extend(self.flag.as_u32().as_bytes_le());
+        // padding?
+        result.extend_from_slice(&[0u8; 6]);
+        result.extend_from_slice(&self.keep_alive_key);
+        // padding?
+        result.extend_from_slice(&[0u8; 4]);
+
+        let footer_bytes = match self.type_id {
+            3 => {
+                let mut footer = vec![0u8; Self::footer_length()];
+                footer[4..8].copy_from_slice(&self.host_ip.octets());
+                footer
+            }
+            _ => vec![0u8; Self::footer_length()],
+        };
+        result.extend(footer_bytes);
+        result
     }
 }

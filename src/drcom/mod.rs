@@ -1,5 +1,7 @@
 // copy from https://github.com/drcoms/drcom-generic
 use std::io;
+use std::fmt::Debug;
+
 use common::reader::{ReadBytesError, ReaderHelper};
 
 pub mod pppoe;
@@ -8,6 +10,10 @@ pub mod wired;
 const PASSWORD_MAX_LEN: usize = 16;
 const USERNAME_MAX_LEN: usize = 16;
 const PACKET_MAGIC_NUMBER: u16 = 0x0103u16;
+
+pub trait DrCOMFlag: Debug {
+    fn as_u32(&self) -> u32;
+}
 
 #[derive(Debug)]
 pub enum DrCOMValidateError {

@@ -1,14 +1,13 @@
 use std::{marker, io, result};
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
-use std::fmt::Debug;
 
 use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, Hasher, HasherType};
 use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::BytesAbleNum;
-use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
+use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, DrCOMFlag};
 
 #[derive(Debug)]
 pub enum DrCOMHeartbeatError {
@@ -73,7 +72,7 @@ pub struct HeartbeatRequest<'a> {
     uid_length: u8,
     mac_address: [u8; 6],
     source_ip: Ipv4Addr,
-    flag: &'a (Flag + 'a),
+    flag: &'a (DrCOMFlag + 'a),
     challenge_seed: u32,
 }
 
@@ -82,7 +81,7 @@ pub struct KeepAliveRequest<'a> {
     sequence: u8,
     type_id: u8,
     source_ip: Ipv4Addr,
-    flag: &'a (Flag + 'a),
+    flag: &'a (DrCOMFlag + 'a),
     keep_alive_seed: u32,
 }
 
@@ -118,10 +117,6 @@ trait CRCHasher {
 
 trait CRCHasherBuilder {
     fn from_mode(mode: u8) -> Result<Self, CRCHashError> where Self: marker::Sized;
-}
-
-pub trait Flag: Debug {
-    fn as_u32(&self) -> u32;
 }
 
 impl Hasher for NoneHasher {
@@ -242,7 +237,7 @@ impl ChallengeResponse {
     }
 }
 
-impl Flag for HeartbeatFlag {
+impl DrCOMFlag for HeartbeatFlag {
     fn as_u32(&self) -> u32 {
         match *self {
             HeartbeatFlag::First => 0x2a006200u32,
@@ -251,7 +246,7 @@ impl Flag for HeartbeatFlag {
     }
 }
 
-impl Flag for KeepAliveRequestFlag {
+impl DrCOMFlag for KeepAliveRequestFlag {
     fn as_u32(&self) -> u32 {
         match *self {
             KeepAliveRequestFlag::First => 0x122f270fu32,
@@ -270,7 +265,7 @@ impl<'a> HeartbeatRequest<'a> {
                   uid_length: Option<u8>,
                   mac_address: Option<[u8; 6]>)
                   -> Self
-        where F: Flag
+        where F: DrCOMFlag
     {
         HeartbeatRequest {
             sequence: sequence,
@@ -369,7 +364,7 @@ impl<'a> KeepAliveRequest<'a> {
                   source_ip: Option<Ipv4Addr>,
                   keep_alive_seed: Option<u32>)
                   -> Self
-        where F: Flag
+        where F: DrCOMFlag
     {
         let type_id = type_id.unwrap_or(1u8);
         let source_ip = source_ip.unwrap_or_else(|| Ipv4Addr::from(0x0));

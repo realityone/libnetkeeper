@@ -415,7 +415,8 @@ mod drcom_tests {
         use std::str::FromStr;
         use drcom::wired::dialer::{LoginAccount, LoginResponse, ChallengeRequest,
                                    ChallengeResponse};
-        use drcom::wired::heartbeater::{PhaseOneRequest, PhaseOneResponse};
+        use drcom::wired::heartbeater::{PhaseOneRequest, PhaseOneResponse, PhaseTwoRequest,
+                                        HeartbeatFlag};
 
         #[test]
         fn test_drcom_wired_challenge() {
@@ -572,11 +573,47 @@ mod drcom_tests {
 
         #[test]
         fn test_drcom_wired_heartbeat() {
+            let flag_first = HeartbeatFlag::First;
+            let flag_not_first = HeartbeatFlag::NotFirst;
+
             let phase1 =
                 PhaseOneRequest::new([1, 2, 3, 4], "password", [5, 6, 7, 8], Some(123456789));
             assert_eq!(phase1.as_bytes(),
                        vec![255, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94,
                             102, 177, 222, 0, 0, 0, 5, 6, 7, 8, 212, 112, 0, 0, 0, 0]);
+
+            {
+                let phase2 = PhaseTwoRequest::new(1,
+                                                  [5, 6, 7, 8],
+                                                  &flag_first,
+                                                  Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                                  Some(1));
+                assert_eq!(phase2.as_bytes(),
+                           vec![7, 1, 40, 0, 11, 1, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 5, 6, 7, 8,
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            }
+
+            {
+                let phase2 = PhaseTwoRequest::new(1,
+                                                  [5, 6, 7, 8],
+                                                  &flag_first,
+                                                  Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                                  Some(3));
+                assert_eq!(phase2.as_bytes(),
+                           vec![7, 1, 40, 0, 11, 3, 15, 39, 47, 18, 0, 0, 0, 0, 0, 0, 5, 6, 7, 8,
+                                0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]);
+            }
+
+            {
+                let phase2 = PhaseTwoRequest::new(1,
+                                                  [5, 6, 7, 8],
+                                                  &flag_not_first,
+                                                  Ipv4Addr::from_str("1.2.3.4").unwrap(),
+                                                  Some(3));
+                assert_eq!(phase2.as_bytes(),
+                           vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 5, 6, 7, 8,
+                                0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]);
+            }
 
             {
                 let fake_response: Vec<u8> = vec![7, 3, 4, 5, 6, 7, 8, 9, 10];
