@@ -415,6 +415,7 @@ mod drcom_tests {
         use std::str::FromStr;
         use drcom::wired::dialer::{LoginAccount, LoginResponse, ChallengeRequest,
                                    ChallengeResponse};
+        use drcom::wired::heartbeater::{PhaseOneRequest, PhaseOneResponse};
 
         #[test]
         fn test_drcom_wired_challenge() {
@@ -566,6 +567,27 @@ mod drcom_tests {
                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 12, 32, 0, 174,
                          219, 0, 0, 250, 225, 35, 69, 103, 137, 0, 0, 233, 19];
                 assert_eq!(lr.unwrap().as_bytes().unwrap(), origin_bytes);
+            }
+        }
+
+        #[test]
+        fn test_drcom_wired_heartbeat() {
+            let phase1 =
+                PhaseOneRequest::new([1, 2, 3, 4], "password", [5, 6, 7, 8], Some(123456789));
+            assert_eq!(phase1.as_bytes(),
+                       vec![255, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94,
+                            102, 177, 222, 0, 0, 0, 5, 6, 7, 8, 212, 112, 0, 0, 0, 0]);
+
+            {
+                let fake_response: Vec<u8> = vec![7, 3, 4, 5, 6, 7, 8, 9, 10];
+                let mut buffer = BufReader::new(&fake_response as &[u8]);
+                assert!(PhaseOneResponse::from_bytes(&mut buffer).is_ok());
+            }
+
+            {
+                let fake_response: Vec<u8> = vec![78, 3, 4, 5, 6, 7, 8, 9, 10];
+                let mut buffer = BufReader::new(&fake_response as &[u8]);
+                assert!(PhaseOneResponse::from_bytes(&mut buffer).is_err());
             }
         }
     }

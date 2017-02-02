@@ -8,7 +8,8 @@ use rand::Rng;
 use rustc_serialize::hex::ToHex;
 use byteorder::{NetworkEndian, ByteOrder};
 
-use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError};
+use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, USERNAME_MAX_LEN,
+            PASSWORD_MAX_LEN, PACKET_MAGIC_NUMBER};
 use common::utils::current_timestamp;
 use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::{BytesAble, BytesAbleNum};
@@ -137,9 +138,7 @@ pub struct LoginAccount {
 
 const SERVICE_PACK_MAX_LEN: usize = 32;
 const HOSTNAME_MAX_LEN: usize = 32;
-const PASSWORD_MAX_LEN: usize = 16;
-const USERNAME_MAX_LEN: usize = 16;
-const LOGIN_PACKET_MAGIC_NUMBER: u16 = 0x0103u16;
+
 
 macro_rules! validate_field_value_overflow {
     (
@@ -386,7 +385,7 @@ impl LoginAccount {
 
     fn password_md5_hash(&self) -> [u8; 16] {
         let mut md5 = HasherBuilder::build(HasherType::MD5);
-        md5.update(&LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
+        md5.update(&PACKET_MAGIC_NUMBER.as_bytes_le());
         md5.update(&self.hash_salt);
         md5.update(self.password.as_bytes());
 
@@ -670,7 +669,7 @@ impl LoginRequest {
 
         // Phase 1
         {
-            result.extend(LOGIN_PACKET_MAGIC_NUMBER.as_bytes_le());
+            result.extend(PACKET_MAGIC_NUMBER.as_bytes_le());
             result.extend(try!(self.account_info.as_bytes()));
             // padding?
             result.extend_from_slice(&[0u8; 20]);
