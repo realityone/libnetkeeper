@@ -58,7 +58,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured
 
 `libnetkeeper` should be compatible with stable rust in `default` feature.
 
-If you are using stable rust, anything will be fine.
+If you are using stable rust, everything will be fine except `clippy`.
 
 ```bash
 $ cargo build --features=default --release
