@@ -27,7 +27,7 @@ And some not tested algorithms:
 
 ## Develop
 
-First of all, you have to install rust and use nightly build, `[rustup](https://www.rustup.rs)` is recommended.
+First of all, you have to install rust and use nightly build, [rustup](https://www.rustup.rs) is recommended.
 
 ### Run Test
 
