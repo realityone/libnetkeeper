@@ -416,7 +416,7 @@ mod drcom_tests {
         use drcom::wired::dialer::{LoginAccount, LoginResponse, ChallengeRequest,
                                    ChallengeResponse};
         use drcom::wired::heartbeater::{PhaseOneRequest, PhaseOneResponse, PhaseTwoRequest,
-                                        HeartbeatFlag};
+                                        HeartbeatFlag, PhaseTwoResponse};
 
         #[test]
         fn test_drcom_wired_challenge() {
@@ -613,6 +613,17 @@ mod drcom_tests {
                 assert_eq!(phase2.as_bytes(),
                            vec![7, 1, 40, 0, 11, 3, 220, 2, 47, 18, 0, 0, 0, 0, 0, 0, 5, 6, 7, 8,
                                 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0]);
+            }
+
+            {
+                let fake_response: Vec<u8> = vec![7, 1, 0x28, 0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+                                                  14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+                                                  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
+                                                  38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49];
+                let mut buffer = BufReader::new(&fake_response as &[u8]);
+                let response = PhaseTwoResponse::from_bytes(&mut buffer).unwrap();
+                assert_eq!(response.sequence, 1);
+                assert_eq!(response.keep_alive_key, [16, 17, 18, 19]);
             }
 
             {
