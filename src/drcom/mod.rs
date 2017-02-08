@@ -7,6 +7,9 @@ use common::reader::{ReadBytesError, ReaderHelper};
 pub mod pppoe;
 pub mod wired;
 
+#[cfg(test)]
+mod tests;
+
 const PASSWORD_MAX_LEN: usize = 16;
 const USERNAME_MAX_LEN: usize = 16;
 const PACKET_MAGIC_NUMBER: u16 = 0x0103u16;
