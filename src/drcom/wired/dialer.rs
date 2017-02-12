@@ -73,8 +73,8 @@ struct TagAdapterInfo {
 }
 
 #[derive(Debug)]
-struct TagAuthExtraInfo {
-    origin_data: Vec<u8>,
+struct TagAuthExtraInfo<'a> {
+    origin_data: &'a [u8],
     mac_address: [u8; 6],
     option: u16,
 }
@@ -592,7 +592,7 @@ impl TagAuthVersionInfo {
 }
 
 
-impl TagAuthExtraInfo {
+impl<'a> TagAuthExtraInfo<'a> {
     fn caculate_check_sum(data: &[u8], initial: Option<u32>) -> u32 {
         let mut result = Wrapping(initial.unwrap_or(1234u32));
         for chunk in data.chunks(4) {
@@ -626,7 +626,7 @@ impl TagAuthExtraInfo {
 
     fn check_sum(&self) -> u32 {
         const CHECK_SUM_PADDING_BYTES: [u8; 6] = [0x1, 0x26, 0x07, 0x11, 0x00, 0x00];
-        let mut to_check_data = self.origin_data.clone();
+        let mut to_check_data = Vec::from(self.origin_data);
         to_check_data.push(Self::code());
         to_check_data.push(Self::content_length() as u8);
         to_check_data.extend_from_slice(&CHECK_SUM_PADDING_BYTES);
@@ -702,12 +702,16 @@ impl LoginRequest {
 
         // Phase 4
         {
-            let auth_extra_info = TagAuthExtraInfo {
-                origin_data: result.clone(),
-                mac_address: self.mac_address,
-                option: self.auth_extra_option,
-            };
-            result.extend(try!(auth_extra_info.as_bytes()));
+            let auth_extra_bytes;
+            {
+                let auth_extra_info = TagAuthExtraInfo {
+                    origin_data: &result,
+                    mac_address: self.mac_address,
+                    option: self.auth_extra_option,
+                };
+                auth_extra_bytes = try!(auth_extra_info.as_bytes());
+            }
+            result.extend(auth_extra_bytes);
         }
 
         // Phase 5
