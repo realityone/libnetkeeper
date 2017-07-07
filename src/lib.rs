@@ -7,7 +7,7 @@ extern crate rustc_serialize;
 extern crate linked_hash_map;
 extern crate crypto as rust_crypto;
 extern crate md4;
-extern crate time;
+extern crate chrono;
 extern crate byteorder;
 extern crate rand;
 

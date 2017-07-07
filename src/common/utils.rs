@@ -2,11 +2,11 @@ use std::slice;
 use std::mem;
 use std::any;
 
-use time;
+use chrono::offset::Utc;
 
 pub fn current_timestamp() -> u32 {
-    let timespec = time::get_time();
-    timespec.sec as u32
+    let now = Utc::now();
+    now.timestamp() as u32
 }
 
 // Deprecated
