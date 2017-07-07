@@ -5,12 +5,12 @@ version = "0.1.0"
 
 [dependencies]
 byteorder = "0.5.3"
+chrono = "0.4.0"
 linked-hash-map = "0.3.0"
 md4 = "0.4.1"
 rand = "0.3.15"
 rust-crypto = "0.2.36"
 rustc-serialize = "0.3.22"
-time = "0.1.36"
 
 [dependencies.clippy]
 optional = true
@@ -19,13 +19,12 @@ version = "*"
 [features]
 default = ["netkeeper", "singlenet", "drcom", "ghca", "srun3k", "ipclient"]
 dev = ["default", "clippy"]
-
-netkeeper = []
-singlenet = []
 drcom = []
 ghca = []
-srun3k = []
 ipclient = []
+netkeeper = []
+singlenet = []
+srun3k = []
 
 [lib]
 name = "netkeeper"
