@@ -1,4 +1,5 @@
 #![allow(match_same_arms)]
+
 use std::{str, result};
 use std::net::Ipv4Addr;
 
@@ -20,9 +21,11 @@ type AttributeResult<T> = result::Result<T, ParseAttributesError>;
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
     TInteger = 0x0,
-    TIPAddress = 0x1, // or Integer array?
+    TIPAddress = 0x1,
+    // or Integer array?
     TString = 0x2,
-    TGroup = 0x3, // Attributes group
+    TGroup = 0x3,
+    // Attributes group
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -368,24 +371,26 @@ impl AttributeVec for Vec<Attribute> {
 }
 
 impl AttributeValue for String {}
+
 impl AttributeValue for Ipv4Addr {}
+
 impl AttributeValue for u32 {}
 
 #[test]
 fn test_attribute_gen_bytes() {
     let un = Attribute::from_type(AttributeType::TUserName, &"05802278989@HYXY.XY".to_string());
     let assert_data: &[u8] = &[1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89,
-                               88, 89, 46, 88, 89];
+        88, 89, 46, 88, 89];
     assert_eq!(&un.as_bytes()[..], assert_data);
 }
 
 #[test]
 fn test_attributes_parse_bytes() {
     let assert_data: &[u8] = &[2, 0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54,
-                               20, 0, 35, 102, 102, 98, 48, 98, 50, 97, 102, 57, 52, 54, 57, 51,
-                               102, 100, 49, 98, 97, 52, 99, 57, 51, 101, 54, 98, 57, 97, 101, 98,
-                               100, 51, 102, 18, 0, 7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48,
-                               50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89];
+        20, 0, 35, 102, 102, 98, 48, 98, 50, 97, 102, 57, 52, 54, 57, 51,
+        102, 100, 49, 98, 97, 52, 99, 57, 51, 101, 54, 98, 57, 97, 101, 98,
+        100, 51, 102, 18, 0, 7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48,
+        50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89];
     let attributes: Vec<Attribute> = Vec::<Attribute>::from_bytes(assert_data).unwrap();
     assert_eq!(attributes.as_bytes(), assert_data);
 }

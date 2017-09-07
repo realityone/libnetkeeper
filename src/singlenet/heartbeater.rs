@@ -50,6 +50,7 @@ pub struct PacketAuthenticator {
 }
 
 pub struct PacketFactoryMac;
+
 pub struct PacketFactoryWin;
 
 impl PacketAuthenticator {
@@ -132,7 +133,8 @@ impl Packet {
                 .map_err(SinglenetHeartbeatError::PacketReadError));
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
-                return Err(SinglenetHeartbeatError::UnexpectedBytes(magic_number_bytes));;
+                return Err(SinglenetHeartbeatError::UnexpectedBytes(magic_number_bytes));
+                ;
             }
         }
 
@@ -331,14 +333,14 @@ fn test_calc_seq() {
 #[test]
 fn test_authenticator() {
     let data: &[u8] = &[83, 78, 0, 105, 3, 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
-                        0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54, 20, 0,
-                        35, 100, 48, 100, 99, 101, 50, 98, 48, 49, 51, 99, 56, 97, 100, 102, 97,
-                        99, 54, 52, 54, 97, 50, 57, 49, 55, 102, 100, 97, 98, 56, 48, 50, 18, 0,
-                        7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57,
-                        64, 72, 89, 88, 89, 46, 88, 89];
+        0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54, 20, 0,
+        35, 100, 48, 100, 99, 101, 50, 98, 48, 49, 51, 99, 56, 97, 100, 102, 97,
+        99, 54, 52, 54, 97, 50, 57, 49, 55, 102, 100, 97, 98, 56, 48, 50, 18, 0,
+        7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57,
+        64, 72, 89, 88, 89, 46, 88, 89];
     let authenticator = PacketAuthenticator::new("LLWLXA_TPSHARESECRET");
     let authorization = authenticator.authenticate(data);
     let real_authorization: [u8; 16] = [240, 67, 87, 201, 164, 134, 179, 142, 110, 163, 208, 119,
-                                        121, 90, 173, 75];
+        121, 90, 173, 75];
     assert_eq!(authorization, real_authorization);
 }

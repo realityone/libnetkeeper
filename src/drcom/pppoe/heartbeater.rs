@@ -170,6 +170,7 @@ impl CRCHasherBuilder for CRCHasherType {
 }
 
 impl DrCOMCommon for ChallengeRequest {}
+
 impl DrCOMResponseCommon for ChallengeResponse {}
 
 impl ChallengeRequest {
@@ -185,14 +186,14 @@ impl ChallengeRequest {
     #[inline]
     fn header_length() -> usize {
         1 + // code
-        1 // sequence
+            1 // sequence
     }
 
     #[inline]
     fn packet_length() -> usize {
         Self::header_length() +
-        4 + // magic number
-        2 // padding?
+            4 + // magic number
+            2 // padding?
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -250,12 +251,13 @@ impl DrCOMFlag for KeepAliveRequestFlag {
     fn as_u32(&self) -> u32 {
         match *self {
             KeepAliveRequestFlag::First => 0x122f270fu32,
-            KeepAliveRequestFlag::NotFirst => 0x122f02dcu32, 
+            KeepAliveRequestFlag::NotFirst => 0x122f02dcu32,
         }
     }
 }
 
 impl<'a> DrCOMCommon for HeartbeatRequest<'a> {}
+
 impl<'a> HeartbeatRequest<'a> {
     pub fn new<F>(sequence: u8,
                   source_ip: Ipv4Addr,
@@ -281,24 +283,24 @@ impl<'a> HeartbeatRequest<'a> {
     #[inline]
     fn header_length() -> usize {
         1 + // code 
-        1 + // sequence
-        2 // packet_length
+            1 + // sequence
+            2 // packet_length
     }
 
     #[inline]
     fn content_length() -> usize {
         1 + // type_id
-        1 + // uid_length
-        6 + // mac_address
-        4 + // source_ip
-        4 + // pppoe_flag
-        4 // challenge_seed
+            1 + // uid_length
+            6 + // mac_address
+            4 + // source_ip
+            4 + // pppoe_flag
+            4 // challenge_seed
     }
 
     #[inline]
     fn footer_length() -> usize {
         8 + // crc_hash
-        16 * 4 // padding?
+            16 * 4 // padding?
     }
 
     #[inline]
@@ -339,7 +341,7 @@ impl<'a> HeartbeatRequest<'a> {
                 rehash_bytes.extend(&content_bytes);
                 rehash_bytes.extend(&footer_bytes);
                 let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap()) *
-                             Wrapping(19680126);
+                    Wrapping(19680126);
 
                 rehash.0.write_bytes_le(&mut footer_bytes[0..4]);
                 0u32.write_bytes_le(&mut footer_bytes[4..8]);
@@ -357,6 +359,7 @@ impl<'a> HeartbeatRequest<'a> {
 }
 
 impl<'a> DrCOMCommon for KeepAliveRequest<'a> {}
+
 impl<'a> KeepAliveRequest<'a> {
     pub fn new<F>(sequence: u8,
                   flag: &'a F,
@@ -381,26 +384,26 @@ impl<'a> KeepAliveRequest<'a> {
     #[inline]
     fn packet_length() -> usize {
         1 + // code
-        1 + // sequence
-        2 + // packet length
-        1 + // uid length
-        Self::uid_length() +
-        4 + // keep alive seed
-        Self::footer_length()
+            1 + // sequence
+            2 + // packet length
+            1 + // uid length
+            Self::uid_length() +
+            4 + // keep alive seed
+            Self::footer_length()
     }
 
     #[inline]
     fn uid_length() -> usize {
         1 + // type id
-        4 + // keep alive flag
-        6 // padding?
+            4 + // keep alive flag
+            6 // padding?
     }
 
     #[inline]
     fn footer_length() -> usize {
         8 + // crc
-        4 + // source ip
-        8 // padding?
+            4 + // source ip
+            8 // padding?
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -438,6 +441,7 @@ impl<'a> KeepAliveRequest<'a> {
 }
 
 impl DrCOMResponseCommon for KeepAliveResponse {}
+
 impl KeepAliveResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
         where R: io::Read

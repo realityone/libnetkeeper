@@ -71,11 +71,11 @@ impl PhaseOneRequest {
 
     fn packet_length() -> usize {
         1 + // code
-        16 + // password hash
-        3 + // padding?
-        4 + // key bytes
-        2 + // timestamp hash
-        4 // padding?
+            16 + // password hash
+            3 + // padding?
+            4 + // key bytes
+            2 + // timestamp hash
+            4 // padding?
     }
 
     fn password_hash(&self) -> [u8; 16] {
@@ -108,7 +108,9 @@ impl DrCOMCommon for PhaseOneResponse {
         0x07u8
     }
 }
+
 impl DrCOMResponseCommon for PhaseOneResponse {}
+
 impl PhaseOneResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> HeartbeatResult<Self>
         where R: io::Read
@@ -156,27 +158,27 @@ impl<'a> PhaseTwoRequest<'a> {
     #[inline]
     fn packet_length() -> usize {
         1 + // code
-        1 + // sequence
-        2 + // content length
-        1 + // uid length
-        Self::uid_length() +
-        4 + // keep alive key
-        4 + // padding?
-        Self::footer_length()
+            1 + // sequence
+            2 + // content length
+            1 + // uid length
+            Self::uid_length() +
+            4 + // keep alive key
+            4 + // padding?
+            Self::footer_length()
     }
 
     #[inline]
     fn footer_length() -> usize {
         4 + // crc
-        4 + // source ip
-        8 // padding?
+            4 + // source ip
+            8 // padding?
     }
 
     #[inline]
     fn uid_length() -> usize {
         1 + // type id
-        4 + // keep alive flag
-        6 // padding?
+            4 + // keep alive flag
+            6 // padding?
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -208,7 +210,9 @@ impl<'a> PhaseTwoRequest<'a> {
 }
 
 impl DrCOMCommon for PhaseTwoResponse {}
+
 impl DrCOMResponseCommon for PhaseTwoResponse {}
+
 impl PhaseTwoResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> HeartbeatResult<Self>
         where R: io::Read

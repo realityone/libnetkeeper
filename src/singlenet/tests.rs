@@ -93,8 +93,6 @@ fn test_real_time_bubble_request() {
 
 #[test]
 fn test_bubble_request() {
-
-
     let authenticator = PacketAuthenticator::new("LLWLXA");
     let reg = PacketFactoryMac::bubble_request("05802278989@HYXY.XY",
                                                Ipv4Addr::from_str("10.8.0.4").unwrap(),

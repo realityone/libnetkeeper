@@ -79,7 +79,7 @@ impl SingleNetDialer {
             let k = 3 * i + 1;
             vectors[k - 1] = scheduled_table[j - 1] >> 0x3 & 0x1F;
             vectors[k] = ((scheduled_table[j - 1] & 0x7) << 0x2) |
-                         (scheduled_table[j] >> 0x6 & 0x3);
+                (scheduled_table[j] >> 0x6 & 0x3);
             vectors[k + 1] = scheduled_table[j] & 0x3F;
         }
 

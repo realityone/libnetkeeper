@@ -11,17 +11,17 @@ extern crate chrono;
 extern crate byteorder;
 extern crate rand;
 
-#[cfg(feature="drcom")]
+#[cfg(feature = "drcom")]
 pub mod drcom;
-#[cfg(feature="netkeeper")]
+#[cfg(feature = "netkeeper")]
 pub mod netkeeper;
-#[cfg(feature="ghca")]
+#[cfg(feature = "ghca")]
 pub mod ghca;
-#[cfg(feature="ipclient")]
+#[cfg(feature = "ipclient")]
 pub mod ipclient;
-#[cfg(feature="singlenet")]
+#[cfg(feature = "singlenet")]
 pub mod singlenet;
-#[cfg(feature="srun3k")]
+#[cfg(feature = "srun3k")]
 pub mod srun3k;
 
 pub mod common;

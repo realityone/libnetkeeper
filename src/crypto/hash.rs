@@ -18,10 +18,12 @@ pub trait Hasher {
 }
 
 struct MD4(md4::Md4);
+
 struct MD5(md5::Md5);
+
 struct SHA1(sha1::Sha1);
 
-macro_rules! impl_for_rust_crypto_digest{
+macro_rules! impl_for_rust_crypto_digest {
     ($digest:path, $hasher:ident) => {
         impl $hasher {
             fn new() -> Self {
@@ -51,6 +53,7 @@ impl MD4 {
         MD4(md4::Md4::new())
     }
 }
+
 impl Hasher for MD4 {
     fn update(&mut self, bytes: &[u8]) {
         self.0.input(bytes)

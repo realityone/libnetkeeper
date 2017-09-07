@@ -188,10 +188,10 @@ impl ChallengeRequest {
     #[inline]
     fn packet_length() -> usize {
         1 + // code 
-        1 + // sequence size
-        Self::sequence_length() +
-        4 + // magic number
-        12 // padding?
+            1 + // sequence size
+            Self::sequence_length() +
+            4 + // magic number
+            12 // padding?
     }
 
     #[inline]
@@ -212,6 +212,7 @@ impl ChallengeRequest {
 }
 
 impl DrCOMResponseCommon for ChallengeResponse {}
+
 impl ChallengeResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> LoginResult<Self>
         where R: io::Read
@@ -239,16 +240,16 @@ impl TagOSVersionInfo {
     #[inline]
     fn attribute_length() -> usize {
         4 + // attribute_length
-        Self::content_length()
+            Self::content_length()
     }
 
     #[inline]
     fn content_length() -> usize {
         4 + // major_version
-        4 + // minor_version
-        4 + // build_number
-        4 + // platform_id
-        128 // service_pack
+            4 + // minor_version
+            4 + // build_number
+            4 + // platform_id
+            128 // service_pack
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -280,10 +281,10 @@ impl TagHostInfo {
     #[inline]
     fn attribute_length() -> usize {
         32 + // hostname
-        4 + // dns_server
-        4 + // dhcp_server
-        4 + // backup_dns_server
-        8 // wins_ips
+            4 + // dns_server
+            4 + // dhcp_server
+            4 + // backup_dns_server
+            8 // wins_ips
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -314,8 +315,8 @@ impl TagLDAPAuthInfo {
 
     fn attribute_length(&self) -> usize {
         1 + // code
-        1 + // password_ror_hash length
-        self.password_ror_hash.len()
+            1 + // password_ror_hash length
+            self.password_ror_hash.len()
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -523,7 +524,7 @@ impl TagAccountInfo {
 
     fn attribute_length(&self) -> usize {
         2 + // attribute length
-        self.content_length()
+            self.content_length()
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -540,9 +541,9 @@ impl TagAccountInfo {
 impl TagAdapterInfo {
     fn attribute_length() -> usize {
         1 + // adapter counts
-        6 + // hashed mac address
-        16 + // password_md5_hash_validator
-        4 * 4 // ipaddress * 4
+            6 + // hashed mac address
+            16 + // password_md5_hash_validator
+            4 * 4 // ipaddress * 4
     }
 
     fn hash_mac_address(mac_address: &[u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
@@ -580,7 +581,7 @@ impl TagAdapterInfo {
 impl TagAuthVersionInfo {
     fn attribute_length() -> usize {
         1 + // client version
-        1 // dog version
+            1 // dog version
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -608,15 +609,15 @@ impl<'a> TagAuthExtraInfo<'a> {
     #[inline]
     fn attribute_length() -> usize {
         1 + // code
-        1 + // content length
-        Self::content_length()
+            1 + // content length
+            Self::content_length()
     }
 
     #[inline]
     fn content_length() -> usize {
         4 + // checksum bytes
-        2 + // option bytes
-        6 // mac_address
+            2 + // option bytes
+            6 // mac_address
     }
 
     #[inline]
@@ -650,18 +651,18 @@ impl<'a> TagAuthExtraInfo<'a> {
 impl LoginRequest {
     fn packet_length(&self) -> usize {
         2 + // magic number
-        self.account_info.attribute_length() + 
-        20 + // padding?
-        1 + // control_check_status
-        TagAdapterInfo::attribute_length() + 
-        match self.ldap_auth_info {
-            Some(ref l) => l.attribute_length(),
-            None => 0,
-        } +
-        TagAuthExtraInfo::attribute_length() + 
-        1 + // auto logout
-        1 + // broadcast mode
-        2 // random number
+            self.account_info.attribute_length() +
+            20 + // padding?
+            1 + // control_check_status
+            TagAdapterInfo::attribute_length() +
+            match self.ldap_auth_info {
+                Some(ref l) => l.attribute_length(),
+                None => 0,
+            } +
+            TagAuthExtraInfo::attribute_length() +
+            1 + // auto logout
+            1 + // broadcast mode
+            2 // random number
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -726,6 +727,7 @@ impl LoginRequest {
 }
 
 impl DrCOMResponseCommon for LoginResponse {}
+
 impl DrCOMCommon for LoginResponse {
     fn code() -> u8 {
         4u8
@@ -819,7 +821,7 @@ fn test_password_hash() {
 
     assert_eq!(TagAdapterInfo::hash_mac_address(&[6, 5, 4, 3, 2, 1],
                                                 &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-                                                  15, 16]),
+                                                    15, 16]),
                [7, 7, 7, 7, 7, 7]);
 
     {
@@ -833,18 +835,18 @@ fn test_password_hash() {
 fn test_data_check_sum() {
     let data: [u8; 326] =
         [3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222,
-         117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97, 109, 101, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169,
-         80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76,
-         73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0,
-         0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-         10, 0, 2, 12, 1, 38, 7, 17, 0, 0, 184, 136, 227, 5, 22, 128];
+            117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97, 109, 101, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169,
+            80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76,
+            73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0,
+            0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            10, 0, 2, 12, 1, 38, 7, 17, 0, 0, 184, 136, 227, 5, 22, 128];
     assert_eq!(TagAuthExtraInfo::caculate_check_sum(&data, None),
                3581815520);
 }
