@@ -41,8 +41,8 @@ impl SimpleCipher for AES_128_ECB {
         let mut output_buff = vec![0u8; plain_bytes.len() + 16];
         let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
 
-        match try!(encrypter.encrypt(&mut input, &mut output, true)
-            .map_err(CipherError::EncryptError)) {
+        match encrypter.encrypt(&mut input, &mut output, true)
+            .map_err(CipherError::EncryptError)? {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }
@@ -57,8 +57,8 @@ impl SimpleCipher for AES_128_ECB {
         let mut output_buff = vec![0u8; encrypted_bytes.len()];
         let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
 
-        match try!(decrypter.decrypt(&mut input, &mut output, true)
-            .map_err(CipherError::DecryptError)) {
+        match decrypter.decrypt(&mut input, &mut output, true)
+            .map_err(CipherError::DecryptError)? {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }

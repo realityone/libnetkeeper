@@ -37,7 +37,7 @@ pub trait DrCOMResponseCommon {
         where R: io::Read,
               V: FnOnce(u8) -> bool
     {
-        let code_bytes = try!(input.read_bytes(1).map_err(DrCOMValidateError::PacketReadError));
+        let code_bytes = input.read_bytes(1).map_err(DrCOMValidateError::PacketReadError)?;
         let code = code_bytes[0];
         if !validator(code) {
             return Err(DrCOMValidateError::CodeMismatch(code));

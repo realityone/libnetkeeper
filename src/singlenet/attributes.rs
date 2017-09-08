@@ -108,10 +108,10 @@ impl Attribute {
                -> Self {
         Attribute {
             name: name.to_string(),
-            parent_id: parent_id,
-            attribute_id: attribute_id,
-            value_type_id: value_type_id,
-            data: data,
+            parent_id,
+            attribute_id,
+            value_type_id,
+            data,
         }
     }
 

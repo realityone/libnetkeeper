@@ -45,16 +45,16 @@ impl MACOpenPacket {
     pub fn new(username: &str, ipaddress: Ipv4Addr, mac_address: &str, isp: ISPCode) -> Self {
         MACOpenPacket {
             username: username.to_string(),
-            ipaddress: ipaddress,
+            ipaddress,
             mac_address: mac_address.to_string(),
-            isp: isp,
+            isp,
         }
     }
 
     pub fn as_bytes(&self, hash_key: u32) -> Result<Vec<u8>, MACOpenErr> {
         let mut macopen_packet = Vec::with_capacity(60);
         {
-            try!(self.validate());
+            self.validate()?;
 
             let mut username_bytes = [0; USERNAME_MAX_LEN];
             let mut mac_address_bytes = [0; MAC_ADDRESS_LEN];

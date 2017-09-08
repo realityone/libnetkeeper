@@ -218,16 +218,16 @@ impl ChallengeResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input, |c| c == 0x02).map_err(LoginError::ValidateError));
+        Self::validate_stream(input, |c| c == 0x02).map_err(LoginError::ValidateError)?;
 
         // drain unknow bytes
-        try!(input.read_bytes(3).map_err(LoginError::PacketReadError));
+        input.read_bytes(3).map_err(LoginError::PacketReadError)?;
 
-        let salt_bytes = try!(input.read_bytes(4).map_err(LoginError::PacketReadError));
+        let salt_bytes = input.read_bytes(4).map_err(LoginError::PacketReadError)?;
         let mut hash_salt = [0u8; 4];
         hash_salt.clone_from_slice(&salt_bytes);
 
-        Ok(ChallengeResponse { hash_salt: hash_salt })
+        Ok(ChallengeResponse { hash_salt })
     }
 }
 
@@ -253,7 +253,7 @@ impl TagOSVersionInfo {
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
-        try!(self.validate());
+        self.validate()?;
 
         let mut content_bytes = vec![0u8; Self::content_length()];
 
@@ -288,7 +288,7 @@ impl TagHostInfo {
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
-        try!(self.validate());
+        self.validate()?;
 
         let mut result = Vec::with_capacity(Self::attribute_length());
 
@@ -320,7 +320,7 @@ impl TagLDAPAuthInfo {
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
-        try!(self.validate());
+        self.validate()?;
 
         let mut result = Vec::with_capacity(self.attribute_length());
         result.push(0u8);
@@ -337,7 +337,7 @@ impl LoginAccount {
         LoginAccount {
             username: username.to_string(),
             password: password.to_string(),
-            hash_salt: hash_salt,
+            hash_salt,
             adapter_count: 1,
             mac_address: [0, 0, 0, 0, 0, 0],
             ipaddresses: [Ipv4Addr::from(0x0); 4],
@@ -426,7 +426,7 @@ impl LoginAccount {
     }
 
     fn tag_ldap_auth_info(&self) -> LoginResult<TagLDAPAuthInfo> {
-        Ok(TagLDAPAuthInfo { password_ror_hash: try!(self.password_ror_hash()) })
+        Ok(TagLDAPAuthInfo { password_ror_hash: self.password_ror_hash()? })
     }
 
     fn tag_adapter_info(&self) -> LoginResult<TagAdapterInfo> {
@@ -462,18 +462,18 @@ impl LoginAccount {
     pub fn login_request(&self) -> LoginResult<LoginRequest> {
         Ok(LoginRequest {
             mac_address: self.mac_address,
-            account_info: try!(self.tag_account_info()),
+            account_info: self.tag_account_info()?,
             control_check_status: self.control_check_status,
-            adapter_info: try!(self.tag_adapter_info()),
+            adapter_info: self.tag_adapter_info()?,
             dog_flag: self.dog_flag,
-            host_info: try!(self.tag_host_info()),
-            os_version_info: try!(self.tag_os_version()),
-            auth_version_info: try!(self.tag_auth_version()),
+            host_info: self.tag_host_info()?,
+            os_version_info: self.tag_os_version()?,
+            auth_version_info: self.tag_auth_version()?,
             auto_logout: self.auto_logout,
             broadcast_mode: self.broadcast_mode,
             random: self.random,
             ldap_auth_info: if self.ror_version {
-                Some(try!(self.tag_ldap_auth_info()))
+                Some(self.tag_ldap_auth_info()?)
             } else {
                 None
             },
@@ -528,7 +528,7 @@ impl TagAccountInfo {
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
-        try!(self.validate());
+        self.validate()?;
 
         let mut result = Vec::with_capacity(self.attribute_length());
         result.extend((self.content_length() as u16).as_bytes_be());
@@ -671,11 +671,11 @@ impl LoginRequest {
         // Phase 1
         {
             result.extend(PACKET_MAGIC_NUMBER.as_bytes_le());
-            result.extend(try!(self.account_info.as_bytes()));
+            result.extend(self.account_info.as_bytes()?);
             // padding?
             result.extend_from_slice(&[0u8; 20]);
             result.push(self.control_check_status);
-            result.extend(try!(self.adapter_info.as_bytes()));
+            result.extend(self.adapter_info.as_bytes()?);
         }
 
         // Phase 2
@@ -693,11 +693,11 @@ impl LoginRequest {
             result.push(self.dog_flag);
             // padding?
             result.extend_from_slice(&[0u8; 4]);
-            result.extend(try!(self.host_info.as_bytes()));
-            result.extend(try!(self.os_version_info.as_bytes()));
-            result.extend(try!(self.auth_version_info.as_bytes()));
+            result.extend(self.host_info.as_bytes()?);
+            result.extend(self.os_version_info.as_bytes()?);
+            result.extend(self.auth_version_info.as_bytes()?);
             if let Some(ref l) = self.ldap_auth_info {
-                result.extend(try!(l.as_bytes()))
+                result.extend(l.as_bytes()?)
             };
         }
 
@@ -710,7 +710,7 @@ impl LoginRequest {
                     mac_address: self.mac_address,
                     option: self.auth_extra_option,
                 };
-                auth_extra_bytes = try!(auth_extra_info.as_bytes());
+                auth_extra_bytes = auth_extra_info.as_bytes()?;
             }
             result.extend(auth_extra_bytes);
         }
@@ -739,17 +739,17 @@ impl LoginResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input, |c| c == Self::code())
-            .map_err(LoginError::ValidateError));
+        Self::validate_stream(input, |c| c == Self::code())
+            .map_err(LoginError::ValidateError)?;
 
         // drain unknow bytes
-        try!(input.read_bytes(22).map_err(LoginError::PacketReadError));
+        input.read_bytes(22).map_err(LoginError::PacketReadError)?;
 
-        let key_bytes = try!(input.read_bytes(6).map_err(LoginError::PacketReadError));
+        let key_bytes = input.read_bytes(6).map_err(LoginError::PacketReadError)?;
         let mut keep_alive_key = [0u8; 6];
         keep_alive_key.clone_from_slice(&key_bytes);
 
-        Ok(LoginResponse { keep_alive_key: keep_alive_key })
+        Ok(LoginResponse { keep_alive_key })
     }
 }
 

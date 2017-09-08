@@ -91,10 +91,10 @@ impl Packet {
         let mut packet = Packet {
             magic_number: Self::magic_number(),
             length: 0,
-            code: code,
-            seq: seq,
-            authorization: authorization,
-            attributes: attributes,
+            code,
+            seq,
+            authorization,
+            attributes,
         };
         packet.length = Self::calc_length(&packet);
         packet
@@ -129,8 +129,8 @@ impl Packet {
         where R: io::Read
     {
         {
-            let magic_number_bytes = try!(input.read_bytes(2)
-                .map_err(SinglenetHeartbeatError::PacketReadError));
+            let magic_number_bytes = input.read_bytes(2)
+                .map_err(SinglenetHeartbeatError::PacketReadError)?;
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
                 return Err(SinglenetHeartbeatError::UnexpectedBytes(magic_number_bytes));
@@ -140,15 +140,15 @@ impl Packet {
 
         let length;
         {
-            let length_bytes = try!(input.read_bytes(2)
-                .map_err(SinglenetHeartbeatError::PacketReadError));
+            let length_bytes = input.read_bytes(2)
+                .map_err(SinglenetHeartbeatError::PacketReadError)?;
             length = NetworkEndian::read_u16(&length_bytes);
         }
 
         let code;
         {
-            let code_bytes = try!(input.read_bytes(1)
-                .map_err(SinglenetHeartbeatError::PacketReadError));
+            let code_bytes = input.read_bytes(1)
+                .map_err(SinglenetHeartbeatError::PacketReadError)?;
             let code_u8 = code_bytes[0];
             match PacketCode::from_u8(code_u8) {
                 Some(packet_code) => code = packet_code,
@@ -158,22 +158,22 @@ impl Packet {
 
         let seq;
         {
-            seq = try!(input.read_bytes(1).map_err(SinglenetHeartbeatError::PacketReadError))[0];
+            seq = input.read_bytes(1).map_err(SinglenetHeartbeatError::PacketReadError)?[0];
         }
 
         let mut authorization = [0u8; 16];
         {
-            let authorization_bytes = try!(input.read_bytes(16)
-                .map_err(SinglenetHeartbeatError::PacketReadError));
+            let authorization_bytes = input.read_bytes(16)
+                .map_err(SinglenetHeartbeatError::PacketReadError)?;
             authorization.copy_from_slice(&authorization_bytes);
         }
 
         let attributes;
         {
-            let attributes_bytes = try!(input.read_bytes((length - Self::header_length()) as usize)
-                .map_err(SinglenetHeartbeatError::PacketReadError));
-            attributes = try!(Vec::<Attribute>::from_bytes(&attributes_bytes)
-                .map_err(SinglenetHeartbeatError::ParseAttributesError));
+            let attributes_bytes = input.read_bytes((length - Self::header_length()) as usize)
+                .map_err(SinglenetHeartbeatError::PacketReadError)?;
+            attributes = Vec::<Attribute>::from_bytes(&attributes_bytes)
+                .map_err(SinglenetHeartbeatError::ParseAttributesError)?;
         }
 
         Ok(Packet::new(code, seq, Some(authorization), attributes))
