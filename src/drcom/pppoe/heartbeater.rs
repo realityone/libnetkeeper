@@ -212,28 +212,28 @@ impl ChallengeResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input, |c| c != 0x4d)
-            .map_err(DrCOMHeartbeatError::ValidateError));
+        Self::validate_stream(input, |c| c != 0x4d)
+            .map_err(DrCOMHeartbeatError::ValidateError)?;
         // drain unknow bytes
-        try!(input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError));
+        input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError)?;
 
         let challenge_seed;
         {
-            let challenge_seed_bytes = try!(input.read_bytes(4)
-                .map_err(DrCOMHeartbeatError::PacketReadError));
+            let challenge_seed_bytes = input.read_bytes(4)
+                .map_err(DrCOMHeartbeatError::PacketReadError)?;
             challenge_seed = NativeEndian::read_u32(&challenge_seed_bytes);
         }
 
         let source_ip;
         {
-            let source_ip_bytes = try!(input.read_bytes(4)
-                .map_err(DrCOMHeartbeatError::PacketReadError));
+            let source_ip_bytes = input.read_bytes(4)
+                .map_err(DrCOMHeartbeatError::PacketReadError)?;
             source_ip = Ipv4Addr::from(NetworkEndian::read_u32(&source_ip_bytes));
         }
 
         Ok(ChallengeResponse {
-            challenge_seed: challenge_seed,
-            source_ip: source_ip,
+            challenge_seed,
+            source_ip,
         })
     }
 }
@@ -270,13 +270,13 @@ impl<'a> HeartbeatRequest<'a> {
         where F: DrCOMFlag
     {
         HeartbeatRequest {
-            sequence: sequence,
+            sequence,
             type_id: type_id.unwrap_or(3u8),
             uid_length: uid_length.unwrap_or(0u8),
             mac_address: mac_address.unwrap_or([0u8; 6]),
-            source_ip: source_ip,
-            flag: flag,
-            challenge_seed: challenge_seed,
+            source_ip,
+            flag,
+            challenge_seed,
         }
     }
 
@@ -373,11 +373,11 @@ impl<'a> KeepAliveRequest<'a> {
         let source_ip = source_ip.unwrap_or_else(|| Ipv4Addr::from(0x0));
         let keep_alive_seed = keep_alive_seed.unwrap_or_default();
         KeepAliveRequest {
-            sequence: sequence,
-            type_id: type_id,
-            source_ip: source_ip,
-            flag: flag,
-            keep_alive_seed: keep_alive_seed,
+            sequence,
+            type_id,
+            source_ip,
+            flag,
+            keep_alive_seed,
         }
     }
 
@@ -447,15 +447,15 @@ impl KeepAliveResponse {
         where R: io::Read
     {
         // validate packet and consume 1 byte
-        try!(Self::validate_stream(input, |c| c != 0x4d)
-            .map_err(DrCOMHeartbeatError::ValidateError));
+        Self::validate_stream(input, |c| c != 0x4d)
+            .map_err(DrCOMHeartbeatError::ValidateError)?;
         // drain unknow bytes
-        try!(input.read_bytes(1).map_err(DrCOMHeartbeatError::PacketReadError));
+        input.read_bytes(1).map_err(DrCOMHeartbeatError::PacketReadError)?;
 
         let type_flag_byte;
         {
-            type_flag_byte = try!(input.read_bytes(1)
-                .map_err(DrCOMHeartbeatError::PacketReadError))[0];
+            type_flag_byte = input.read_bytes(1)
+                .map_err(DrCOMHeartbeatError::PacketReadError)?[0];
         }
 
         let response_type = match type_flag_byte {
@@ -464,7 +464,7 @@ impl KeepAliveResponse {
             _ => KeepAliveResponseType::UnrecognizedResponse,
         };
 
-        Ok(KeepAliveResponse { response_type: response_type })
+        Ok(KeepAliveResponse { response_type })
     }
 }
 

@@ -48,7 +48,7 @@ impl GhcaDialer {
                            fst_timestamp: Option<u32>,
                            sec_timestamp: Option<u32>)
                            -> Result<String, GhcaDialerError> {
-        try!(Self::validate(username, password));
+        Self::validate(username, password)?;
         let name_len = username.len() as u32;
         let pwd_len = password.len() as u32;
 
