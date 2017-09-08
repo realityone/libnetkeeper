@@ -3,11 +3,11 @@
 use std::{str, result};
 use std::net::Ipv4Addr;
 
-use rustc_serialize::hex::ToHex;
 use byteorder::{NetworkEndian, ByteOrder};
 
 use crypto::hash::{HasherBuilder, HasherType};
 use common::utils::current_timestamp;
+use common::hex::ToHex;
 use common::bytes::{BytesAble, BytesAbleNum};
 
 #[derive(Debug)]

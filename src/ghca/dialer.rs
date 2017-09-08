@@ -1,8 +1,7 @@
-use rustc_serialize::hex::ToHex;
-
 use crypto::hash::{HasherBuilder, HasherType};
 use common::utils::current_timestamp;
 use common::dialer::Dialer;
+use common::hex::ToHex;
 use common::bytes::BytesAbleNum;
 
 #[derive(Debug)]
