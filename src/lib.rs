@@ -3,7 +3,6 @@
 #![cfg_attr(feature = "dev", plugin(clippy))]
 #![cfg_attr(not(feature = "dev"), allow(unknown_lints))]
 
-extern crate rustc_serialize;
 extern crate linked_hash_map;
 extern crate crypto as rust_crypto;
 extern crate md4;

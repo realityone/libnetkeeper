@@ -5,12 +5,12 @@ use std::num::Wrapping;
 
 use rand;
 use rand::Rng;
-use rustc_serialize::hex::ToHex;
 use byteorder::{NetworkEndian, ByteOrder};
 
 use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, USERNAME_MAX_LEN,
             PASSWORD_MAX_LEN, PACKET_MAGIC_NUMBER};
 use common::utils::current_timestamp;
+use common::hex::ToHex;
 use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::{BytesAble, BytesAbleNum};
 use crypto::hash::{HasherType, HasherBuilder};

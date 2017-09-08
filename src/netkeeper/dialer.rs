@@ -1,10 +1,9 @@
 use std::str;
 
-use rustc_serialize::hex::ToHex;
-
 use crypto::hash::{HasherBuilder, HasherType};
 use common::utils::current_timestamp;
 use common::dialer::Dialer;
+use common::hex::ToHex;
 use common::bytes::BytesAbleNum;
 
 // copy from https://github.com/miao1007/Openwrt-NetKeeper
