@@ -123,7 +123,7 @@ impl Hasher for NoneHasher {
     #[allow(unused_variables)]
     fn update(&mut self, bytes: &[u8]) {}
     fn finish(&mut self) -> Vec<u8> {
-        const DRCOM_DIAL_EXT_PROTO_CRC_INIT: u32 = 20000711;
+        const DRCOM_DIAL_EXT_PROTO_CRC_INIT: u32 = 20_000_711;
         const UNKNOW_MAGIC_NUMBER: u32 = 126;
 
         let mut result = Vec::with_capacity(8);
@@ -180,7 +180,7 @@ impl ChallengeRequest {
 
     #[inline]
     fn magic_number() -> u32 {
-        65544u32
+        65_544u32
     }
 
     #[inline]
@@ -241,8 +241,8 @@ impl ChallengeResponse {
 impl DrCOMFlag for HeartbeatFlag {
     fn as_u32(&self) -> u32 {
         match *self {
-            HeartbeatFlag::First => 0x2a006200u32,
-            HeartbeatFlag::NotFirst => 0x2a006300u32,
+            HeartbeatFlag::First => 0x2a00_6200u32,
+            HeartbeatFlag::NotFirst => 0x2a00_6300u32,
         }
     }
 }
@@ -250,8 +250,8 @@ impl DrCOMFlag for HeartbeatFlag {
 impl DrCOMFlag for KeepAliveRequestFlag {
     fn as_u32(&self) -> u32 {
         match *self {
-            KeepAliveRequestFlag::First => 0x122f270fu32,
-            KeepAliveRequestFlag::NotFirst => 0x122f02dcu32,
+            KeepAliveRequestFlag::First => 0x122f_270fu32,
+            KeepAliveRequestFlag::NotFirst => 0x122f_02dcu32,
         }
     }
 }
@@ -341,7 +341,7 @@ impl<'a> HeartbeatRequest<'a> {
                 rehash_bytes.extend(&content_bytes);
                 rehash_bytes.extend(&footer_bytes);
                 let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap()) *
-                    Wrapping(19680126);
+                    Wrapping(19_680_126);
 
                 rehash.0.write_bytes_le(&mut footer_bytes[0..4]);
                 0u32.write_bytes_le(&mut footer_bytes[4..8]);

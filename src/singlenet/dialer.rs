@@ -96,7 +96,7 @@ impl SingleNetDialer {
         let mut data = data;
 
         if length % 2 != 0 {
-            summary = data[length - 1] as u32;
+            summary = u32::from(data[length - 1]);
             data = &data[0..length - 2];
         }
 
@@ -106,8 +106,8 @@ impl SingleNetDialer {
                                                        length / 2);
         }
 
-        summary = data_shorts.iter().fold(summary, |sum, x| sum + *x as u32);
-        if summary & 0xFFFF0000 != 0 {
+        summary = data_shorts.iter().fold(summary, |sum, x| sum + u32::from(*x));
+        if summary & 0xFFFF_0000 != 0 {
             summary = ((summary >> 0x10) + summary) & 0xFFFF;
         }
 

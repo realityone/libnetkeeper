@@ -125,8 +125,8 @@ impl PhaseOneResponse {
 impl DrCOMFlag for HeartbeatFlag {
     fn as_u32(&self) -> u32 {
         match *self {
-            HeartbeatFlag::First => 0x122f270f,
-            HeartbeatFlag::NotFirst => 0x122f02dc,
+            HeartbeatFlag::First => 0x122f_270f,
+            HeartbeatFlag::NotFirst => 0x122f_02dc,
         }
     }
 }
