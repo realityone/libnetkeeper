@@ -186,7 +186,7 @@ impl PacketFactoryWin {
         // only be used in windows version,
         let timestamp = timestamp.unwrap_or_else(current_timestamp);
 
-        let tmp_num = ((timestamp as u64 * 0x343fd) + 0x269ec3) as u32;
+        let tmp_num = ((u64::from(timestamp) * 0x3_43fd) + 0x26_9ec3) as u32;
         ((tmp_num >> 0x10) & 0xff) as u8
     }
 

@@ -36,7 +36,7 @@ pub enum ISPCode {
 impl Configuration {
     pub fn hash_key(&self) -> u32 {
         match *self {
-            _ => 0x4E67C6A7,
+            _ => 0x4E67_C6A7,
         }
     }
 }
@@ -87,9 +87,9 @@ impl MACOpenPacket {
     fn hash_bytes(bytes: &[u8], hash_key: u32) -> [u8; 4] {
         let mut hash = Wrapping(hash_key as i32);
         for c in bytes.iter() {
-            hash ^= (hash << 5) + (hash >> 2) + Wrapping(*c as i32);
+            hash ^= (hash << 5) + (hash >> 2) + Wrapping(i32::from(*c));
         }
-        hash &= Wrapping(0x7fffffff);
+        hash &= Wrapping(0x7fff_ffff);
 
         let mut hash_bytes = [0; 4];
         (hash.0 as u32).write_bytes_le(&mut hash_bytes);

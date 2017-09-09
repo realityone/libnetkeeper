@@ -87,7 +87,7 @@ impl GhcaDialer {
             md5_hash_prefix = md5.finish()[..8].to_hex().to_uppercase();
         }
 
-        let pwd_char_sum = password.as_bytes().iter().fold(0, |sum, x| sum + *x as u32);
+        let pwd_char_sum = password.as_bytes().iter().fold(0, |sum, x| sum + u32::from(*x));
         let pin = format!("{:04X}", delta ^ pwd_char_sum);
         Ok(format!("{}{:08X}{}{}{}{}",
                    self.prefix,

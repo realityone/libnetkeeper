@@ -53,14 +53,14 @@ macro_rules! impl_bytes_able_for_num_type {
             #[inline]
             fn as_bytes_be(&self) -> Vec<u8> {
                 let mut bytes = [0u8; $size];
-                NetworkEndian::write_uint(&mut bytes, *self as u64, $size);
+                NetworkEndian::write_uint(&mut bytes, u64::from(*self), $size);
                 bytes.to_vec()
             }
 
             #[inline]
             fn as_bytes_le(&self) -> Vec<u8> {
                 let mut bytes = [0u8; $size];
-                NativeEndian::write_uint(&mut bytes, *self as u64, $size);
+                NativeEndian::write_uint(&mut bytes, u64::from(*self), $size);
                 bytes.to_vec()
             }
         }
