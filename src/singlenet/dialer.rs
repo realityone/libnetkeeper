@@ -29,14 +29,14 @@ impl SingleNetDialer {
 
     pub fn encrypt_account(&self, username: &str, timestamp: Option<u32>) -> String {
         let username = username.to_uppercase();
-        let timenow = timestamp.unwrap_or_else(current_timestamp);
+        let time_now = timestamp.unwrap_or_else(current_timestamp);
 
         let first_hash: u16;
         {
-            let mut timenow_bytes = [0u8; 4];
-            NetworkEndian::write_u32(&mut timenow_bytes, timenow);
+            let mut time_now_bytes = [0u8; 4];
+            NetworkEndian::write_u32(&mut time_now_bytes, time_now);
             let mut hash_data: Vec<u8> = Vec::new();
-            hash_data.extend_from_slice(&timenow_bytes);
+            hash_data.extend_from_slice(&time_now_bytes);
             hash_data.extend(self.share_key.as_bytes());
             hash_data.extend(username.split('@').nth(0).unwrap().as_bytes());
             first_hash = Self::calc_hash(&hash_data)
@@ -54,22 +54,22 @@ impl SingleNetDialer {
 
         let mut scheduled_table: Vec<u8> = Vec::with_capacity(8);
         {
-            let timenow_high = (timenow >> 16) as u16;
-            let timenow_low = (timenow & 0xFFFF) as u16;
+            let time_now_high = (time_now >> 16) as u16;
+            let time_now_low = (time_now & 0xFFFF) as u16;
 
-            let mut timenow_high_bytes = [0u8; 2];
-            let mut timenow_low_bytes = [0u8; 2];
+            let mut time_now_high_bytes = [0u8; 2];
+            let mut time_now_low_bytes = [0u8; 2];
             let mut first_hash_bytes = [0u8; 2];
             let mut second_hash_bytes = [0u8; 2];
 
-            NetworkEndian::write_u16(&mut timenow_high_bytes, timenow_high);
-            NetworkEndian::write_u16(&mut timenow_low_bytes, timenow_low);
+            NetworkEndian::write_u16(&mut time_now_high_bytes, time_now_high);
+            NetworkEndian::write_u16(&mut time_now_low_bytes, time_now_low);
             NativeEndian::write_u16(&mut first_hash_bytes, first_hash);
             NativeEndian::write_u16(&mut second_hash_bytes, second_hash);
 
-            scheduled_table.extend_from_slice(&timenow_high_bytes);
+            scheduled_table.extend_from_slice(&time_now_high_bytes);
             scheduled_table.extend_from_slice(&first_hash_bytes);
-            scheduled_table.extend_from_slice(&timenow_low_bytes);
+            scheduled_table.extend_from_slice(&time_now_low_bytes);
             scheduled_table.extend_from_slice(&second_hash_bytes);
         }
 
