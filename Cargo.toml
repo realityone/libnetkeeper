@@ -4,7 +4,7 @@ name = "libnetkeeper"
 version = "0.1.0"
 
 [dependencies]
-byteorder = "0.5.3"
+byteorder = "1.1.0"
 chrono = "0.4.0"
 linked-hash-map = "0.3.0"
 md4 = "0.4.1"
