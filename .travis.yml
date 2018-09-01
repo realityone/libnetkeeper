@@ -11,8 +11,10 @@ before_install:
 matrix:
   allow_failures:
     - script:
+        - cargo install clippy --verbose --force
         - cargo clippy -- -D clippy
   include:
   - rust: "nightly"
     script:
+      - cargo install clippy --verbose --force
       - cargo clippy -- -D clippy
