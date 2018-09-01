@@ -20,7 +20,7 @@ pub struct MACOpenPacket {
     isp: ISPCode,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Configuration {
     GUET,
     GXNU,
@@ -34,8 +34,8 @@ pub enum ISPCode {
 }
 
 impl Configuration {
-    pub fn hash_key(&self) -> u32 {
-        match *self {
+    pub fn hash_key(self) -> u32 {
+        match self {
             _ => 0x4E67_C6A7,
         }
     }

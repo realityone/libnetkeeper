@@ -32,7 +32,7 @@ First of all, you have to install rust and use nightly build, [rustup](https://w
 ### Run Test
 
 ```bash
-$ cargo test --features=dev
+$ cargo test
 ...
 test singlenet::dialer::test_hash_key ... ok
 test netkeeper_tests::test_netkeeper_heartbeat_parse ... ok

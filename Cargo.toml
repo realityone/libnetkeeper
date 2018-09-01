@@ -12,11 +12,12 @@ rand = "0.3.15"
 rust-crypto = "0.2.36"
 
 [features]
-default = ["netkeeper", "singlenet", "drcom", "ghca", "srun3k", "ipclient"]
+default = ["netkeeper", "netkeeper4", "singlenet", "drcom", "ghca", "srun3k", "ipclient"]
 drcom = []
 ghca = []
 ipclient = []
 netkeeper = []
+netkeeper4 = []
 singlenet = []
 srun3k = []
 

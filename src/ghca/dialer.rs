@@ -10,7 +10,7 @@ pub enum GhcaDialerError {
     InvalidPassword(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Configuration {
     SichuanMac,
 }
@@ -97,22 +97,22 @@ impl GhcaDialer {
 }
 
 impl Configuration {
-    pub fn share_key(&self) -> &'static str {
-        match *self {
+    pub fn share_key(self) -> &'static str {
+        match self {
             Configuration::SichuanMac => {
                 "aI0fC8RslXg6HXaKAUa6kpvcAXszvTcxYP8jmS9sBnVfIqTRdJS1eZNHmBjKN28j"
             }
         }
     }
 
-    pub fn prefix(&self) -> &'static str {
-        match *self {
+    pub fn prefix(self) -> &'static str {
+        match self {
             _ => "~ghca",
         }
     }
 
-    pub fn version(&self) -> &'static str {
-        match *self {
+    pub fn version(self) -> &'static str {
+        match self {
             Configuration::SichuanMac => "2023",
         }
     }

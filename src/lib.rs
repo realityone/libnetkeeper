@@ -15,6 +15,8 @@ pub mod ghca;
 pub mod ipclient;
 #[cfg(feature = "netkeeper")]
 pub mod netkeeper;
+#[cfg(feature = "netkeeper4")]
+pub mod netkeeper4;
 #[cfg(feature = "singlenet")]
 pub mod singlenet;
 #[cfg(feature = "srun3k")]
