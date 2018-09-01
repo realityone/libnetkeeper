@@ -12,7 +12,9 @@ pub struct Srun3kDialer {
 impl Srun3kDialer {
     pub fn new(config: Option<Configuration>) -> Self {
         let config = config.unwrap_or(Configuration::TaLiMu);
-        Srun3kDialer { configuration: config }
+        Srun3kDialer {
+            configuration: config,
+        }
     }
 
     pub fn encrypt_account_v20(&self, username: &str) -> String {

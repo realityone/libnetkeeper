@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
+use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
 pub trait BytesAble {
     fn as_bytes(&self) -> Vec<u8>;
@@ -41,7 +41,7 @@ impl BytesAble for String {
 }
 
 macro_rules! impl_bytes_able_for_num_type {
-    ($ty:ty, $size:expr) => (
+    ($ty:ty, $size:expr) => {
         impl BytesAble for $ty {
             #[inline]
             fn as_bytes(&self) -> Vec<u8> {
@@ -64,7 +64,7 @@ macro_rules! impl_bytes_able_for_num_type {
                 bytes.to_vec()
             }
         }
-    )
+    };
 }
 
 impl_bytes_able_for_num_type!(u64, 8);

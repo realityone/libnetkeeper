@@ -1,14 +1,14 @@
-use std::{io, str, result};
 use std::str::FromStr;
+use std::{io, result, str};
 
-use crypto::cipher::{SimpleCipher, CipherError};
+use byteorder::{ByteOrder, NetworkEndian};
+use crypto::cipher::{CipherError, SimpleCipher};
 use crypto::hash::{HasherBuilder, HasherType};
 use linked_hash_map::LinkedHashMap;
-use byteorder::{NetworkEndian, ByteOrder};
 
-use common::utils::current_timestamp;
-use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::BytesAbleNum;
+use common::reader::{ReadBytesError, ReaderHelper};
+use common::utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum NetkeeperHeartbeatError {
@@ -40,7 +40,7 @@ impl Frame {
         let content = content.unwrap_or_else(LinkedHashMap::new);
         Frame {
             type_name: type_name.to_string(),
-            content: content,
+            content,
         }
     }
 
@@ -76,13 +76,15 @@ impl Frame {
             if parts[0].to_lowercase() == "type" {
                 type_name = String::from_str(&parts[1]).unwrap();
             } else {
-                frame_content.insert(String::from_str(&parts[0]).unwrap(),
-                                     String::from_str(&parts[1]).unwrap());
+                frame_content.insert(
+                    String::from_str(&parts[0]).unwrap(),
+                    String::from_str(&parts[1]).unwrap(),
+                );
             }
         }
 
         Frame {
-            type_name: type_name,
+            type_name,
             content: frame_content,
         }
     }
@@ -101,20 +103,22 @@ impl Packet {
     pub fn new(version: u8, code: u16, frame: Frame) -> Self {
         Packet {
             magic_number: Self::magic_number(),
-            version: version,
-            code: code,
-            frame: frame,
+            version,
+            code,
+            frame,
         }
     }
 
     pub fn as_bytes<E>(&self, encrypter: &E) -> PacketResult<Vec<u8>>
-        where E: SimpleCipher
+    where
+        E: SimpleCipher,
     {
         let mut packet_bytes = Vec::new();
         {
             let version_str = self.version.to_string();
-            let enc_content = try!(encrypter.encrypt(&self.frame.as_bytes(None))
-                .map_err(NetkeeperHeartbeatError::PacketCipherError));
+            let enc_content = encrypter
+                .encrypt(&self.frame.as_bytes(None))
+                .map_err(NetkeeperHeartbeatError::PacketCipherError)?;
 
             packet_bytes.extend(self.magic_number.as_bytes_be());
             packet_bytes.extend(version_str.as_bytes());
@@ -125,16 +129,19 @@ impl Packet {
         Ok(packet_bytes)
     }
 
-    pub fn from_bytes<R, E>(input: &mut io::BufReader<R>,
-                            encrypter: &E,
-                            split_with: Option<&str>)
-                            -> PacketResult<Self>
-        where E: SimpleCipher,
-              R: io::Read
+    pub fn from_bytes<R, E>(
+        input: &mut io::BufReader<R>,
+        encrypter: &E,
+        split_with: Option<&str>,
+    ) -> PacketResult<Self>
+    where
+        E: SimpleCipher,
+        R: io::Read,
     {
         {
-            let magic_number_bytes = try!(input.read_bytes(2)
-                .map_err(NetkeeperHeartbeatError::PacketReadError));
+            let magic_number_bytes = input
+                .read_bytes(2)
+                .map_err(NetkeeperHeartbeatError::PacketReadError)?;
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
                 return Err(NetkeeperHeartbeatError::UnexpectedBytes(magic_number_bytes));
@@ -143,30 +150,35 @@ impl Packet {
 
         let version;
         {
-            let version_bytes = try!(input.read_bytes(2)
-                .map_err(NetkeeperHeartbeatError::PacketReadError));
+            let version_bytes = input
+                .read_bytes(2)
+                .map_err(NetkeeperHeartbeatError::PacketReadError)?;
             let version_str = String::from_utf8(version_bytes).unwrap();
             version = version_str.parse::<u8>().unwrap();
         }
 
         let code;
         {
-            let code_bytes = try!(input.read_bytes(2)
-                .map_err(NetkeeperHeartbeatError::PacketReadError));
+            let code_bytes = input
+                .read_bytes(2)
+                .map_err(NetkeeperHeartbeatError::PacketReadError)?;
             code = NetworkEndian::read_u16(&code_bytes);
         }
 
         let content_length;
         {
-            let content_length_bytes = try!(input.read_bytes(4)
-                .map_err(NetkeeperHeartbeatError::PacketReadError));
+            let content_length_bytes = input
+                .read_bytes(4)
+                .map_err(NetkeeperHeartbeatError::PacketReadError)?;
             content_length = NetworkEndian::read_u32(&content_length_bytes);
         }
 
-        let encrypted_content = try!(input.read_bytes(content_length as usize)
-            .map_err(NetkeeperHeartbeatError::PacketReadError));
-        let plain_content = try!(encrypter.decrypt(&encrypted_content)
-            .map_err(NetkeeperHeartbeatError::PacketCipherError));
+        let encrypted_content = input
+            .read_bytes(content_length as usize)
+            .map_err(NetkeeperHeartbeatError::PacketReadError)?;
+        let plain_content = encrypter
+            .decrypt(&encrypted_content)
+            .map_err(NetkeeperHeartbeatError::PacketCipherError)?;
         let frame = Frame::from_bytes(&plain_content, split_with);
 
         Ok(Self::new(version, code, frame))
@@ -189,32 +201,34 @@ impl PacketUtils {
             hashed_bytes.clone_from_slice(&md5.finish());
         }
 
-        format!("{}{}{:02x}{:02x}{}{}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{}{}{:02x}{:\
-                 02x}{:02x}{}{}{:02x}{:02x}{:02x}",
-                timestamp_hex_chars[0],
-                timestamp_hex_chars[1],
-                hashed_bytes[0],
-                hashed_bytes[1],
-                timestamp_hex_chars[2],
-                timestamp_hex_chars[3],
-                hashed_bytes[2],
-                hashed_bytes[3],
-                hashed_bytes[4],
-                hashed_bytes[5],
-                hashed_bytes[6],
-                hashed_bytes[7],
-                hashed_bytes[8],
-                hashed_bytes[9],
-                timestamp_hex_chars[4],
-                timestamp_hex_chars[5],
-                hashed_bytes[10],
-                hashed_bytes[11],
-                hashed_bytes[12],
-                timestamp_hex_chars[6],
-                timestamp_hex_chars[7],
-                hashed_bytes[13],
-                hashed_bytes[14],
-                hashed_bytes[15])
+        format!(
+            "{}{}{:02x}{:02x}{}{}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{}{}{:02x}{:\
+             02x}{:02x}{}{}{:02x}{:02x}{:02x}",
+            timestamp_hex_chars[0],
+            timestamp_hex_chars[1],
+            hashed_bytes[0],
+            hashed_bytes[1],
+            timestamp_hex_chars[2],
+            timestamp_hex_chars[3],
+            hashed_bytes[2],
+            hashed_bytes[3],
+            hashed_bytes[4],
+            hashed_bytes[5],
+            hashed_bytes[6],
+            hashed_bytes[7],
+            hashed_bytes[8],
+            hashed_bytes[9],
+            timestamp_hex_chars[4],
+            timestamp_hex_chars[5],
+            hashed_bytes[10],
+            hashed_bytes[11],
+            hashed_bytes[12],
+            timestamp_hex_chars[6],
+            timestamp_hex_chars[7],
+            hashed_bytes[13],
+            hashed_bytes[14],
+            hashed_bytes[15]
+        )
     }
 }
 
@@ -227,8 +241,10 @@ fn test_frame_concat() {
     let frame_bytes = frame.as_bytes(None);
     let frame_str = ::std::str::from_utf8(&frame_bytes).unwrap();
 
-    assert_eq!(frame_str,
-               "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000");
+    assert_eq!(
+        frame_str,
+        "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000"
+    );
     assert_eq!(frame.len(), 60);
 }
 
@@ -258,9 +274,11 @@ fn test_aes_128_ecb_encrypt() {
     let aes = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
     let plain_text = "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000";
     let encrypted = aes.encrypt(plain_text.as_bytes()).unwrap();
-    let real_data = vec![66, 100, 164, 73, 167, 41, 222, 211, 188, 8, 14, 110, 252, 246, 121, 119,
-                         79, 18, 254, 193, 72, 163, 54, 136, 248, 60, 221, 177, 221, 0, 13, 10,
-                         146, 141, 142, 244, 89, 10, 176, 106, 162, 242, 204, 38, 73, 34, 55, 137,
-                         180, 223, 253, 142, 43, 158, 209, 80, 100, 141, 11, 15, 146, 20, 207, 10];
+    let real_data = vec![
+        66, 100, 164, 73, 167, 41, 222, 211, 188, 8, 14, 110, 252, 246, 121, 119, 79, 18, 254, 193,
+        72, 163, 54, 136, 248, 60, 221, 177, 221, 0, 13, 10, 146, 141, 142, 244, 89, 10, 176, 106,
+        162, 242, 204, 38, 73, 34, 55, 137, 180, 223, 253, 142, 43, 158, 209, 80, 100, 141, 11, 15,
+        146, 20, 207, 10,
+    ];
     assert_eq!(encrypted, real_data);
 }

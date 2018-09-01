@@ -1,13 +1,13 @@
-use std::{marker, io, result};
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
+use std::{io, marker, result};
 
-use byteorder::{NativeEndian, NetworkEndian, ByteOrder};
+use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
-use crypto::hash::{HasherBuilder, Hasher, HasherType};
-use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::BytesAbleNum;
-use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, DrCOMFlag};
+use common::reader::{ReadBytesError, ReaderHelper};
+use crypto::hash::{Hasher, HasherBuilder, HasherType};
+use drcom::{DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError};
 
 #[derive(Debug)]
 pub enum DrCOMHeartbeatError {
@@ -116,7 +116,9 @@ trait CRCHasher {
 }
 
 trait CRCHasherBuilder {
-    fn from_mode(mode: u8) -> Result<Self, CRCHashError> where Self: marker::Sized;
+    fn from_mode(mode: u8) -> Result<Self, CRCHashError>
+    where
+        Self: marker::Sized;
 }
 
 impl Hasher for NoneHasher {
@@ -156,7 +158,8 @@ impl CRCHasher for CRCHasherType {
 
 impl CRCHasherBuilder for CRCHasherType {
     fn from_mode(mode: u8) -> Result<Self, CRCHashError>
-        where Self: marker::Sized
+    where
+        Self: marker::Sized,
     {
         match mode {
             0 => Ok(CRCHasherType::NONE),
@@ -175,7 +178,9 @@ impl DrCOMResponseCommon for ChallengeResponse {}
 
 impl ChallengeRequest {
     pub fn new(sequence: Option<u8>) -> Self {
-        ChallengeRequest { sequence: sequence.unwrap_or(1u8) }
+        ChallengeRequest {
+            sequence: sequence.unwrap_or(1u8),
+        }
     }
 
     #[inline]
@@ -209,24 +214,28 @@ impl ChallengeRequest {
 
 impl ChallengeResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c != 0x4d)
-            .map_err(DrCOMHeartbeatError::ValidateError)?;
+        Self::validate_stream(input, |c| c != 0x4d).map_err(DrCOMHeartbeatError::ValidateError)?;
         // drain unknow bytes
-        input.read_bytes(7).map_err(DrCOMHeartbeatError::PacketReadError)?;
+        input
+            .read_bytes(7)
+            .map_err(DrCOMHeartbeatError::PacketReadError)?;
 
         let challenge_seed;
         {
-            let challenge_seed_bytes = input.read_bytes(4)
+            let challenge_seed_bytes = input
+                .read_bytes(4)
                 .map_err(DrCOMHeartbeatError::PacketReadError)?;
             challenge_seed = NativeEndian::read_u32(&challenge_seed_bytes);
         }
 
         let source_ip;
         {
-            let source_ip_bytes = input.read_bytes(4)
+            let source_ip_bytes = input
+                .read_bytes(4)
                 .map_err(DrCOMHeartbeatError::PacketReadError)?;
             source_ip = Ipv4Addr::from(NetworkEndian::read_u32(&source_ip_bytes));
         }
@@ -259,15 +268,17 @@ impl DrCOMFlag for KeepAliveRequestFlag {
 impl<'a> DrCOMCommon for HeartbeatRequest<'a> {}
 
 impl<'a> HeartbeatRequest<'a> {
-    pub fn new<F>(sequence: u8,
-                  source_ip: Ipv4Addr,
-                  flag: &'a F,
-                  challenge_seed: u32,
-                  type_id: Option<u8>,
-                  uid_length: Option<u8>,
-                  mac_address: Option<[u8; 6]>)
-                  -> Self
-        where F: DrCOMFlag
+    pub fn new<F>(
+        sequence: u8,
+        source_ip: Ipv4Addr,
+        flag: &'a F,
+        challenge_seed: u32,
+        type_id: Option<u8>,
+        uid_length: Option<u8>,
+        mac_address: Option<[u8; 6]>,
+    ) -> Self
+    where
+        F: DrCOMFlag,
     {
         HeartbeatRequest {
             sequence,
@@ -340,8 +351,8 @@ impl<'a> HeartbeatRequest<'a> {
                 rehash_bytes.extend(&header_bytes);
                 rehash_bytes.extend(&content_bytes);
                 rehash_bytes.extend(&footer_bytes);
-                let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap()) *
-                    Wrapping(19_680_126);
+                let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap())
+                    * Wrapping(19_680_126);
 
                 rehash.0.write_bytes_le(&mut footer_bytes[0..4]);
                 0u32.write_bytes_le(&mut footer_bytes[4..8]);
@@ -361,13 +372,15 @@ impl<'a> HeartbeatRequest<'a> {
 impl<'a> DrCOMCommon for KeepAliveRequest<'a> {}
 
 impl<'a> KeepAliveRequest<'a> {
-    pub fn new<F>(sequence: u8,
-                  flag: &'a F,
-                  type_id: Option<u8>,
-                  source_ip: Option<Ipv4Addr>,
-                  keep_alive_seed: Option<u32>)
-                  -> Self
-        where F: DrCOMFlag
+    pub fn new<F>(
+        sequence: u8,
+        flag: &'a F,
+        type_id: Option<u8>,
+        source_ip: Option<Ipv4Addr>,
+        keep_alive_seed: Option<u32>,
+    ) -> Self
+    where
+        F: DrCOMFlag,
     {
         let type_id = type_id.unwrap_or(1u8);
         let source_ip = source_ip.unwrap_or_else(|| Ipv4Addr::from(0x0));
@@ -444,17 +457,20 @@ impl DrCOMResponseCommon for KeepAliveResponse {}
 
 impl KeepAliveResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> PacketResult<Self>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c != 0x4d)
-            .map_err(DrCOMHeartbeatError::ValidateError)?;
+        Self::validate_stream(input, |c| c != 0x4d).map_err(DrCOMHeartbeatError::ValidateError)?;
         // drain unknow bytes
-        input.read_bytes(1).map_err(DrCOMHeartbeatError::PacketReadError)?;
+        input
+            .read_bytes(1)
+            .map_err(DrCOMHeartbeatError::PacketReadError)?;
 
         let type_flag_byte;
         {
-            type_flag_byte = input.read_bytes(1)
+            type_flag_byte = input
+                .read_bytes(1)
                 .map_err(DrCOMHeartbeatError::PacketReadError)?[0];
         }
 
@@ -467,7 +483,6 @@ impl KeepAliveResponse {
         Ok(KeepAliveResponse { response_type })
     }
 }
-
 
 fn calculate_drcom_crc32(bytes: &[u8], initial: Option<u32>) -> Result<u32, CRCHashError> {
     if bytes.len() % 4 != 0 {
@@ -496,5 +511,5 @@ fn test_generate_crc_hash() {
 #[test]
 fn test_calculate_drcom_crc32() {
     let crc32 = calculate_drcom_crc32(b"1234567899999999", None).unwrap();
-    assert_eq!(crc32, 201589764);
+    assert_eq!(crc32, 201_589_764);
 }

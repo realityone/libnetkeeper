@@ -1,7 +1,7 @@
+use std::io::Cursor;
 use std::str;
-use std::slice;
 
-use byteorder::{NetworkEndian, NativeEndian, ByteOrder};
+use byteorder::{ByteOrder, NativeEndian, NetworkEndian, ReadBytesExt};
 
 use common::dialer::Dialer;
 use common::utils::current_timestamp;
@@ -78,13 +78,16 @@ impl SingleNetDialer {
             let j = 2 * i + 1;
             let k = 3 * i + 1;
             vectors[k - 1] = scheduled_table[j - 1] >> 0x3 & 0x1F;
-            vectors[k] = ((scheduled_table[j - 1] & 0x7) << 0x2) |
-                (scheduled_table[j] >> 0x6 & 0x3);
+            vectors[k] =
+                ((scheduled_table[j - 1] & 0x7) << 0x2) | (scheduled_table[j] >> 0x6 & 0x3);
             vectors[k + 1] = scheduled_table[j] & 0x3F;
         }
 
         let key_table_bytes = self.key_table_bytes();
-        let pin: Vec<u8> = vectors.iter().map(|c| key_table_bytes[*c as usize]).collect();
+        let pin: Vec<u8> = vectors
+            .iter()
+            .map(|c| key_table_bytes[*c as usize])
+            .collect();
 
         let pin_str = str::from_utf8(&pin).unwrap();
         format!("~LL_{}_{}", pin_str, username)
@@ -97,16 +100,21 @@ impl SingleNetDialer {
 
         if length % 2 != 0 {
             summary = u32::from(data[length - 1]);
-            data = &data[0..length - 2];
+            data = &data[0..length - 1];
         }
 
-        let data_shorts: &[u16];
-        unsafe {
-            data_shorts = slice::from_raw_parts::<u16>((data as *const [u8]) as *const u16,
-                                                       length / 2);
-        }
+        let data_shorts = {
+            let mut shorts = vec![0u16; 0];
+            let mut rdr = Cursor::new(data);
+            while let Ok(s) = rdr.read_u16::<NativeEndian>() {
+                shorts.push(s);
+            }
+            shorts
+        };
 
-        summary = data_shorts.iter().fold(summary, |sum, x| sum + u32::from(*x));
+        summary = data_shorts
+            .iter()
+            .fold(summary, |sum, x| sum + u32::from(*x));
         if summary & 0xFFFF_0000 != 0 {
             summary = ((summary >> 0x10) + summary) & 0xFFFF;
         }

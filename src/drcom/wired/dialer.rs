@@ -1,19 +1,21 @@
-use std::{io, result};
 use std::net::Ipv4Addr;
-use std::str::FromStr;
 use std::num::Wrapping;
+use std::str::FromStr;
+use std::{io, result};
 
+use byteorder::{ByteOrder, NetworkEndian};
 use rand;
 use rand::Rng;
-use byteorder::{NetworkEndian, ByteOrder};
 
-use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, USERNAME_MAX_LEN,
-            PASSWORD_MAX_LEN, PACKET_MAGIC_NUMBER};
-use common::utils::current_timestamp;
+use common::bytes::{BytesAble, BytesAbleNum};
 use common::hex::ToHex;
 use common::reader::{ReadBytesError, ReaderHelper};
-use common::bytes::{BytesAble, BytesAbleNum};
-use crypto::hash::{HasherType, HasherBuilder};
+use common::utils::current_timestamp;
+use crypto::hash::{HasherBuilder, HasherType};
+use drcom::{
+    DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER, PASSWORD_MAX_LEN,
+    USERNAME_MAX_LEN,
+};
 
 #[derive(Debug)]
 pub enum LoginError {
@@ -139,7 +141,6 @@ pub struct LoginAccount {
 const SERVICE_PACK_MAX_LEN: usize = 32;
 const HOSTNAME_MAX_LEN: usize = 32;
 
-
 macro_rules! validate_field_value_overflow {
     (
         $( $field:expr, $max_size:expr );*
@@ -215,7 +216,8 @@ impl DrCOMResponseCommon for ChallengeResponse {}
 
 impl ChallengeResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> LoginResult<Self>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         // validate packet and consume 1 byte
         Self::validate_stream(input, |c| c == 0x02).map_err(LoginError::ValidateError)?;
@@ -331,7 +333,6 @@ impl TagLDAPAuthInfo {
     }
 }
 
-
 impl LoginAccount {
     pub fn new(username: &str, password: &str, hash_salt: [u8; 4]) -> Self {
         LoginAccount {
@@ -373,7 +374,10 @@ impl LoginAccount {
 
     fn ror(md5_digest: &[u8; 16], password: &str) -> LoginResult<Vec<u8>> {
         if password.len() > PASSWORD_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(password.len(), PASSWORD_MAX_LEN));
+            return Err(LoginError::FieldValueOverflow(
+                password.len(),
+                PASSWORD_MAX_LEN,
+            ));
         }
 
         let mut result = Vec::with_capacity(PASSWORD_MAX_LEN);
@@ -426,7 +430,9 @@ impl LoginAccount {
     }
 
     fn tag_ldap_auth_info(&self) -> LoginResult<TagLDAPAuthInfo> {
-        Ok(TagLDAPAuthInfo { password_ror_hash: self.password_ror_hash()? })
+        Ok(TagLDAPAuthInfo {
+            password_ror_hash: self.password_ror_hash()?,
+        })
     }
 
     fn tag_adapter_info(&self) -> LoginResult<TagAdapterInfo> {
@@ -490,26 +496,28 @@ impl LoginAccount {
         self
     }
 
-    configurable_field!(adapter_count: u8,
-                        mac_address: [u8; 6],
-                        dog_flag: u8,
-                        client_version: u8,
-                        dog_version: u8,
-                        control_check_status: u8,
-                        ror_version: bool,
-                        hostname: String,
-                        service_pack: String,
-                        dns_server: Ipv4Addr,
-                        backup_dns_server: Ipv4Addr,
-                        wins_ips: [Ipv4Addr; 2],
-                        major_version: u32,
-                        minor_version: u32,
-                        build_number: u32,
-                        platform_id: u32,
-                        auto_logout: bool,
-                        broadcast_mode: bool,
-                        random: u16,
-                        auth_extra_option: u16);
+    configurable_field!(
+        adapter_count: u8,
+        mac_address: [u8; 6],
+        dog_flag: u8,
+        client_version: u8,
+        dog_version: u8,
+        control_check_status: u8,
+        ror_version: bool,
+        hostname: String,
+        service_pack: String,
+        dns_server: Ipv4Addr,
+        backup_dns_server: Ipv4Addr,
+        wins_ips: [Ipv4Addr; 2],
+        major_version: u32,
+        minor_version: u32,
+        build_number: u32,
+        platform_id: u32,
+        auto_logout: bool,
+        broadcast_mode: bool,
+        random: u16,
+        auth_extra_option: u16
+    );
 }
 
 impl TagAccountInfo {
@@ -546,10 +554,10 @@ impl TagAdapterInfo {
             4 * 4 // ipaddress * 4
     }
 
-    fn hash_mac_address(mac_address: &[u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
+    fn hash_mac_address(mac_address: [u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
         let prefix = &password_md5_hash[..6];
         let prefix_hex_u64 = u64::from_str_radix(&prefix.to_hex(), 16).unwrap();
-        let mac_address_u64 = NetworkEndian::read_uint(mac_address, 6);
+        let mac_address_u64 = NetworkEndian::read_uint(&mac_address, 6);
 
         let mut result = [0u8; 6];
         result.clone_from_slice(&((prefix_hex_u64 ^ mac_address_u64) as u64).as_bytes_be()[2..8]);
@@ -559,7 +567,10 @@ impl TagAdapterInfo {
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
         let mut result = Vec::with_capacity(Self::attribute_length());
         result.push(self.counts);
-        result.extend_from_slice(&Self::hash_mac_address(&self.mac_address, &self.password_md5_hash));
+        result.extend_from_slice(&Self::hash_mac_address(
+            self.mac_address,
+            &self.password_md5_hash,
+        ));
         result.extend_from_slice(&self.password_md5_hash_validator);
 
         {
@@ -591,7 +602,6 @@ impl TagAuthVersionInfo {
         Ok(result)
     }
 }
-
 
 impl<'a> TagAuthExtraInfo<'a> {
     fn caculate_check_sum(data: &[u8], initial: Option<u32>) -> u32 {
@@ -736,11 +746,11 @@ impl DrCOMCommon for LoginResponse {
 
 impl LoginResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> LoginResult<Self>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code())
-            .map_err(LoginError::ValidateError)?;
+        Self::validate_stream(input, |c| c == Self::code()).map_err(LoginError::ValidateError)?;
 
         // drain unknow bytes
         input.read_bytes(22).map_err(LoginError::PacketReadError)?;
@@ -769,36 +779,54 @@ fn test_login_packet_attributes() {
         .ror_version(false)
         .auth_extra_option(0x0);
 
-    assert_eq!(la.tag_os_version().unwrap().as_bytes().unwrap(),
-               vec![148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56,
-                    57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(
+        la.tag_os_version().unwrap().as_bytes().unwrap(),
+        vec![
+            148, 0, 0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0,
+        ]
+    );
 
-    assert_eq!(la.tag_host_info().unwrap().as_bytes().unwrap(),
-               vec![76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(
+        la.tag_host_info().unwrap().as_bytes().unwrap(),
+        vec![
+            76, 73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]
+    );
 
-
-    assert_eq!(la.tag_account_info().unwrap().as_bytes().unwrap(),
-               vec![0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102,
-                    177, 222, 117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97,
-                    109, 101]);
-    assert_eq!(la.tag_ldap_auth_info().unwrap().as_bytes().unwrap(),
-               vec![0, 8, 246, 118, 31, 45, 254, 12, 137, 112]);
-    assert_eq!(la.tag_adapter_info().unwrap().as_bytes().unwrap(),
-               vec![1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59, 106, 173, 172, 242,
-                    14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0]);
+    assert_eq!(
+        la.tag_account_info().unwrap().as_bytes().unwrap(),
+        vec![
+            0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222,
+            117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97, 109, 101,
+        ]
+    );
+    assert_eq!(
+        la.tag_ldap_auth_info().unwrap().as_bytes().unwrap(),
+        vec![0, 8, 246, 118, 31, 45, 254, 12, 137, 112]
+    );
+    assert_eq!(
+        la.tag_adapter_info().unwrap().as_bytes().unwrap(),
+        vec![
+            1, 22, 39, 115, 211, 190, 110, 169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27,
+            203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]
+    );
 }
 
 #[test]
 fn test_password_hash() {
-    assert_eq!(LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
-               vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46]);
+    assert_eq!(
+        LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
+        vec![
+            102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46,
+        ]
+    );
 
     let mut la = LoginAccount::new("usernameusername", "password", [1, 2, 3, 4]);
     la.ipaddresses(&[Ipv4Addr::from_str("10.30.22.17").unwrap()])
@@ -814,39 +842,51 @@ fn test_password_hash() {
         .ror_version(false)
         .auth_extra_option(0x0);
 
-    assert_eq!(la.password_md5_hash(),
-               [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]);
-    assert_eq!(la.password_md5_hash_validator(),
-               [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]);
+    assert_eq!(
+        la.password_md5_hash(),
+        [174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222]
+    );
+    assert_eq!(
+        la.password_md5_hash_validator(),
+        [169, 80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153]
+    );
 
-    assert_eq!(TagAdapterInfo::hash_mac_address(&[6, 5, 4, 3, 2, 1],
-                                                &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-                                                    15, 16]),
-               [7, 7, 7, 7, 7, 7]);
+    assert_eq!(
+        TagAdapterInfo::hash_mac_address(
+            [6, 5, 4, 3, 2, 1],
+            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        ),
+        [7, 7, 7, 7, 7, 7]
+    );
 
     {
         let la = LoginAccount::new("usernameusername", "password", [0x7, 0x8, 0x9, 0x10]);
-        assert_eq!(la.password_md5_hash(),
-                   [227, 154, 169, 77, 33, 112, 224, 233, 249, 52, 229, 206, 20, 132, 105, 72]);
+        assert_eq!(
+            la.password_md5_hash(),
+            [227, 154, 169, 77, 33, 112, 224, 233, 249, 52, 229, 206, 20, 132, 105, 72]
+        );
     }
 }
 
 #[test]
 fn test_data_check_sum() {
-    let data: [u8; 326] =
-        [3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222,
-            117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97, 109, 101, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169,
-            80, 242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76,
-            73, 89, 85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0,
-            0, 0, 5, 0, 0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            10, 0, 2, 12, 1, 38, 7, 17, 0, 0, 184, 136, 227, 5, 22, 128];
-    assert_eq!(TagAuthExtraInfo::caculate_check_sum(&data, None),
-               3581815520);
+    let data: [u8; 326] = [
+        3, 1, 0, 36, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222,
+        117, 115, 101, 114, 110, 97, 109, 101, 117, 115, 101, 114, 110, 97, 109, 101, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 1, 22, 39, 115, 211, 190, 110, 169, 80,
+        242, 73, 215, 59, 106, 173, 172, 242, 14, 27, 203, 29, 82, 153, 1, 10, 30, 22, 17, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 144, 84, 80, 240, 75, 157, 179, 232, 1, 0, 0, 0, 0, 76, 73, 89,
+        85, 65, 78, 89, 85, 65, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 114, 114, 114, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 148, 0, 0, 0, 5, 0,
+        0, 0, 1, 0, 0, 0, 40, 10, 0, 0, 2, 0, 0, 0, 56, 48, 56, 57, 68, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 2, 12, 1,
+        38, 7, 17, 0, 0, 184, 136, 227, 5, 22, 128,
+    ];
+    assert_eq!(
+        TagAuthExtraInfo::caculate_check_sum(&data, None),
+        3_581_815_520
+    );
 }

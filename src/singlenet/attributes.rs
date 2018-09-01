@@ -1,14 +1,12 @@
-#![allow(match_same_arms)]
-
-use std::{str, result};
 use std::net::Ipv4Addr;
+use std::{result, str};
 
-use byteorder::{NetworkEndian, ByteOrder};
+use byteorder::{ByteOrder, NetworkEndian};
 
-use crypto::hash::{HasherBuilder, HasherType};
-use common::utils::current_timestamp;
-use common::hex::ToHex;
 use common::bytes::{BytesAble, BytesAbleNum};
+use common::hex::ToHex;
+use common::utils::current_timestamp;
+use crypto::hash::{HasherBuilder, HasherType};
 
 #[derive(Debug)]
 pub enum ParseAttributesError {
@@ -100,12 +98,13 @@ pub trait AttributeVec {
 }
 
 impl Attribute {
-    pub fn new(name: &str,
-               parent_id: u8,
-               attribute_id: u8,
-               value_type_id: u8,
-               data: Vec<u8>)
-               -> Self {
+    pub fn new(
+        name: &str,
+        parent_id: u8,
+        attribute_id: u8,
+        value_type_id: u8,
+        data: Vec<u8>,
+    ) -> Self {
         Attribute {
             name: name.to_string(),
             parent_id,
@@ -116,13 +115,16 @@ impl Attribute {
     }
 
     pub fn from_type<V>(attribute_type: AttributeType, value: &V) -> Self
-        where V: AttributeValue
+    where
+        V: AttributeValue,
     {
-        Self::new(attribute_type.name(),
-                  attribute_type.parent().id(),
-                  attribute_type.id(),
-                  attribute_type.value_type() as u8,
-                  value.as_bytes().to_vec())
+        Self::new(
+            attribute_type.name(),
+            attribute_type.parent().id(),
+            attribute_type.id(),
+            attribute_type.value_type() as u8,
+            value.as_bytes().to_vec(),
+        )
     }
 
     fn header_length() -> u16 {
@@ -168,8 +170,8 @@ impl KeepaliveDataCalculator {
 }
 
 impl AttributeType {
-    pub fn name(&self) -> &'static str {
-        match *self {
+    pub fn name(self) -> &'static str {
+        match self {
             AttributeType::TUserName => "User-Name",
             AttributeType::TClientIPAddress => "Client-IP-Address",
             AttributeType::TClientVersion => "Client-Version",
@@ -221,8 +223,8 @@ impl AttributeType {
         }
     }
 
-    pub fn id(&self) -> u8 {
-        match *self {
+    pub fn id(self) -> u8 {
+        match self {
             AttributeType::TAttribute => 0x0,
             AttributeType::TUserName => 0x1,
             AttributeType::TClientIPAddress => 0x2,
@@ -273,53 +275,53 @@ impl AttributeType {
         }
     }
 
-    pub fn parent(&self) -> Self {
-        match *self {
-            AttributeType::TBubbleId |
-            AttributeType::TBubbleTitle |
-            AttributeType::TBubbleContext |
-            AttributeType::TBubbleContextURL |
-            AttributeType::TBubbleKeepTime |
-            AttributeType::TBubbleDelayTime |
-            AttributeType::TBubbleType => AttributeType::TBubble,
+    pub fn parent(self) -> Self {
+        match self {
+            AttributeType::TBubbleId
+            | AttributeType::TBubbleTitle
+            | AttributeType::TBubbleContext
+            | AttributeType::TBubbleContextURL
+            | AttributeType::TBubbleKeepTime
+            | AttributeType::TBubbleDelayTime
+            | AttributeType::TBubbleType => AttributeType::TBubble,
 
-            AttributeType::TChannelNote |
-            AttributeType::TChannelContextURL |
-            AttributeType::TChannelContextURL2 |
-            AttributeType::TChannelOrder => AttributeType::TChannel,
+            AttributeType::TChannelNote
+            | AttributeType::TChannelContextURL
+            | AttributeType::TChannelContextURL2
+            | AttributeType::TChannelOrder => AttributeType::TChannel,
 
-            AttributeType::TPluginName |
-            AttributeType::TPluginConfigureData => AttributeType::TPlugin,
+            AttributeType::TPluginName | AttributeType::TPluginConfigureData => {
+                AttributeType::TPlugin
+            }
 
-            AttributeType::TDeviceSN |
-            AttributeType::TDeviceType => AttributeType::TPlugin2,
+            AttributeType::TDeviceSN | AttributeType::TDeviceType => AttributeType::TPlugin2,
 
             _ => AttributeType::TAttribute,
         }
     }
 
-    pub fn value_type(&self) -> AttributeValueType {
-        match *self {
+    pub fn value_type(self) -> AttributeValueType {
+        match self {
             AttributeType::TClientIPAddress => AttributeValueType::TIPAddress,
 
-            AttributeType::TBubble |
-            AttributeType::TChannel |
-            AttributeType::TPlugin |
-            AttributeType::TPlugin2 => AttributeValueType::TGroup,
+            AttributeType::TBubble
+            | AttributeType::TChannel
+            | AttributeType::TPlugin
+            | AttributeType::TPlugin2 => AttributeValueType::TGroup,
 
-            AttributeType::TMemorySize |
-            AttributeType::TBubbleId |
-            AttributeType::TBubbleKeepTime |
-            AttributeType::TBubbleDelayTime |
-            AttributeType::TBubbleType |
-            AttributeType::TChannelOrder |
-            AttributeType::TKeepAliveTime |
-            AttributeType::TKeepAliveInterval |
-            AttributeType::TProcessCheckInterval |
-            AttributeType::TRealTimeBubbleInterval |
-            AttributeType::TWifiShareNumber |
-            AttributeType::TWifiShareCode |
-            AttributeType::TWifiShareBindRequired => AttributeValueType::TInteger,
+            AttributeType::TMemorySize
+            | AttributeType::TBubbleId
+            | AttributeType::TBubbleKeepTime
+            | AttributeType::TBubbleDelayTime
+            | AttributeType::TBubbleType
+            | AttributeType::TChannelOrder
+            | AttributeType::TKeepAliveTime
+            | AttributeType::TKeepAliveInterval
+            | AttributeType::TProcessCheckInterval
+            | AttributeType::TRealTimeBubbleInterval
+            | AttributeType::TWifiShareNumber
+            | AttributeType::TWifiShareCode
+            | AttributeType::TWifiShareBindRequired => AttributeValueType::TInteger,
 
             _ => AttributeValueType::TString,
         }
@@ -352,7 +354,10 @@ impl AttributeVec for Vec<Attribute> {
                 return Ok(attributes);
             }
             if bytes_length < header_length {
-                return Err(ParseAttributesError::UnexpectDataLength(header_length, bytes_length));
+                return Err(ParseAttributesError::UnexpectDataLength(
+                    header_length,
+                    bytes_length,
+                ));
             }
             let attribute_id = cursor[0];
 
@@ -360,7 +365,10 @@ impl AttributeVec for Vec<Attribute> {
             index += data_length;
 
             if data_length > bytes_length {
-                return Err(ParseAttributesError::UnexpectDataLength(data_length, bytes_length));
+                return Err(ParseAttributesError::UnexpectDataLength(
+                    data_length,
+                    bytes_length,
+                ));
             }
 
             let mut data: Vec<u8> = Vec::new();
@@ -379,18 +387,20 @@ impl AttributeValue for u32 {}
 #[test]
 fn test_attribute_gen_bytes() {
     let un = Attribute::from_type(AttributeType::TUserName, &"05802278989@HYXY.XY".to_string());
-    let assert_data: &[u8] = &[1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89,
-        88, 89, 46, 88, 89];
+    let assert_data: &[u8] = &[
+        1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,
+    ];
     assert_eq!(&un.as_bytes()[..], assert_data);
 }
 
 #[test]
 fn test_attributes_parse_bytes() {
-    let assert_data: &[u8] = &[2, 0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54,
-        20, 0, 35, 102, 102, 98, 48, 98, 50, 97, 102, 57, 52, 54, 57, 51,
-        102, 100, 49, 98, 97, 52, 99, 57, 51, 101, 54, 98, 57, 97, 101, 98,
-        100, 51, 102, 18, 0, 7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48,
-        50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89];
+    let assert_data: &[u8] = &[
+        2, 0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54, 20, 0, 35, 102, 102,
+        98, 48, 98, 50, 97, 102, 57, 52, 54, 57, 51, 102, 100, 49, 98, 97, 52, 99, 57, 51, 101, 54,
+        98, 57, 97, 101, 98, 100, 51, 102, 18, 0, 7, 87, 196, 78, 204, 1, 0, 22, 48, 53, 56, 48,
+        50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,
+    ];
     let attributes: Vec<Attribute> = Vec::<Attribute>::from_bytes(assert_data).unwrap();
     assert_eq!(attributes.as_bytes(), assert_data);
 }
@@ -398,8 +408,10 @@ fn test_attributes_parse_bytes() {
 #[test]
 fn test_keepalive_data() {
     let kp_data1 = KeepaliveDataCalculator::calculate(Some(1472483020), None);
-    let kp_data2 = KeepaliveDataCalculator::calculate(Some(1472483020),
-                                                      Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"));
+    let kp_data2 = KeepaliveDataCalculator::calculate(
+        Some(1472483020),
+        Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"),
+    );
     assert_eq!(kp_data1, "ffb0b2af94693fd1ba4c93e6b9aebd3f");
     assert_eq!(kp_data2, "d0dce2b013c8adfac646a2917fdab802");
 }

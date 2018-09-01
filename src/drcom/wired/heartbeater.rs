@@ -1,13 +1,13 @@
-use std::{result, io};
 use std::net::Ipv4Addr;
+use std::{io, result};
 
-use byteorder::{NativeEndian, ByteOrder};
+use byteorder::{ByteOrder, NativeEndian};
 
-use drcom::{DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER, DrCOMFlag};
-use common::utils::current_timestamp;
-use common::reader::{ReadBytesError, ReaderHelper};
 use common::bytes::BytesAbleNum;
-use crypto::hash::{HasherType, HasherBuilder};
+use common::reader::{ReadBytesError, ReaderHelper};
+use common::utils::current_timestamp;
+use crypto::hash::{HasherBuilder, HasherType};
+use drcom::{DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER};
 
 #[derive(Debug)]
 pub enum HeartbeatError {
@@ -56,11 +56,12 @@ impl DrCOMCommon for PhaseOneRequest {
 }
 
 impl PhaseOneRequest {
-    pub fn new(hash_salt: [u8; 4],
-               password: &str,
-               keep_alive_key: [u8; 4],
-               timestamp: Option<u32>)
-               -> Self {
+    pub fn new(
+        hash_salt: [u8; 4],
+        password: &str,
+        keep_alive_key: [u8; 4],
+        timestamp: Option<u32>,
+    ) -> Self {
         PhaseOneRequest {
             timestamp: timestamp.unwrap_or_else(current_timestamp),
             hash_salt,
@@ -113,11 +114,11 @@ impl DrCOMResponseCommon for PhaseOneResponse {}
 
 impl PhaseOneResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> HeartbeatResult<Self>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code())
-            .map_err(HeartbeatError::ValidateError)?;
+        Self::validate_stream(input, |c| c == Self::code()).map_err(HeartbeatError::ValidateError)?;
         Ok(PhaseOneResponse {})
     }
 }
@@ -138,13 +139,15 @@ impl<'a> DrCOMCommon for PhaseTwoRequest<'a> {
 }
 
 impl<'a> PhaseTwoRequest<'a> {
-    pub fn new<F>(sequence: u8,
-                  keep_alive_key: [u8; 4],
-                  flag: &'a F,
-                  host_ip: Ipv4Addr,
-                  type_id: Option<u8>)
-                  -> Self
-        where F: DrCOMFlag
+    pub fn new<F>(
+        sequence: u8,
+        keep_alive_key: [u8; 4],
+        flag: &'a F,
+        host_ip: Ipv4Addr,
+        type_id: Option<u8>,
+    ) -> Self
+    where
+        F: DrCOMFlag,
     {
         PhaseTwoRequest {
             sequence,
@@ -215,31 +218,43 @@ impl DrCOMResponseCommon for PhaseTwoResponse {}
 
 impl PhaseTwoResponse {
     pub fn from_bytes<R>(input: &mut io::BufReader<R>) -> HeartbeatResult<Self>
-        where R: io::Read
+    where
+        R: io::Read,
     {
         const PHASE_TWO_RESPONSE_LENGTH: u16 = 0x28;
 
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code())
-            .map_err(HeartbeatError::ValidateError)?;
+        Self::validate_stream(input, |c| c == Self::code()).map_err(HeartbeatError::ValidateError)?;
 
-        let sequence = input.read_bytes(1).map_err(HeartbeatError::PacketReadError)?[0];
+        let sequence = input
+            .read_bytes(1)
+            .map_err(HeartbeatError::PacketReadError)?[0];
 
         // validate length bytes
         {
-            let length_bytes = input.read_bytes(2).map_err(HeartbeatError::PacketReadError)?;
+            let length_bytes = input
+                .read_bytes(2)
+                .map_err(HeartbeatError::PacketReadError)?;
             let length = NativeEndian::read_u16(&length_bytes);
             if length != PHASE_TWO_RESPONSE_LENGTH {
-                return Err(HeartbeatError::ResponseLengthMismatch(length,
-                                                                  PHASE_TWO_RESPONSE_LENGTH));
+                return Err(HeartbeatError::ResponseLengthMismatch(
+                    length,
+                    PHASE_TWO_RESPONSE_LENGTH,
+                ));
             }
         }
 
         // drain unknow bytes
-        input.read_bytes(12).map_err(HeartbeatError::PacketReadError)?;
+        input
+            .read_bytes(12)
+            .map_err(HeartbeatError::PacketReadError)?;
 
         let mut keep_alive_key = [0u8; 4];
-        keep_alive_key.copy_from_slice(&input.read_bytes(4).map_err(HeartbeatError::PacketReadError)?);
+        keep_alive_key.copy_from_slice(
+            &input
+                .read_bytes(4)
+                .map_err(HeartbeatError::PacketReadError)?,
+        );
         Ok(PhaseTwoResponse {
             sequence,
             keep_alive_key,

@@ -1,5 +1,5 @@
+use rust_crypto::buffer::{ReadBuffer, WriteBuffer};
 use rust_crypto::{aes, blockmodes, buffer, symmetriccipher};
-use rust_crypto::buffer::{WriteBuffer, ReadBuffer};
 
 #[derive(Debug)]
 pub enum CipherError {
@@ -41,8 +41,10 @@ impl SimpleCipher for AES_128_ECB {
         let mut output_buff = vec![0u8; plain_bytes.len() + 16];
         let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
 
-        match encrypter.encrypt(&mut input, &mut output, true)
-            .map_err(CipherError::EncryptError)? {
+        match encrypter
+            .encrypt(&mut input, &mut output, true)
+            .map_err(CipherError::EncryptError)?
+        {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }
@@ -57,8 +59,10 @@ impl SimpleCipher for AES_128_ECB {
         let mut output_buff = vec![0u8; encrypted_bytes.len()];
         let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
 
-        match decrypter.decrypt(&mut input, &mut output, true)
-            .map_err(CipherError::DecryptError)? {
+        match decrypter
+            .decrypt(&mut input, &mut output, true)
+            .map_err(CipherError::DecryptError)?
+        {
             buffer::BufferResult::BufferUnderflow => {
                 Ok(output.take_read_buffer().take_remaining().to_vec())
             }
@@ -74,7 +78,11 @@ fn test_aes_128_ecb_cipher() {
     let aes = AES_128_ECB::new(key).unwrap();
     let encrypted = aes.encrypt(message).unwrap();
     let decrypted = aes.decrypt(encrypted.as_slice()).unwrap();
-    assert_eq!(vec![208, 217, 45, 21, 237, 39, 220, 119, 98, 164, 86, 69, 76, 172, 126, 5],
-               encrypted);
+    assert_eq!(
+        vec![
+            208, 217, 45, 21, 237, 39, 220, 119, 98, 164, 86, 69, 76, 172, 126, 5,
+        ],
+        encrypted
+    );
     assert_eq!(message.to_vec(), decrypted);
 }

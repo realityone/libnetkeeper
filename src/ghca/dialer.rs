@@ -1,8 +1,8 @@
-use crypto::hash::{HasherBuilder, HasherType};
-use common::utils::current_timestamp;
+use common::bytes::BytesAbleNum;
 use common::dialer::Dialer;
 use common::hex::ToHex;
-use common::bytes::BytesAbleNum;
+use common::utils::current_timestamp;
+use crypto::hash::{HasherBuilder, HasherType};
 
 #[derive(Debug)]
 pub enum GhcaDialerError {
@@ -41,12 +41,13 @@ impl GhcaDialer {
         Ok(())
     }
 
-    pub fn encrypt_account(&self,
-                           username: &str,
-                           password: &str,
-                           fst_timestamp: Option<u32>,
-                           sec_timestamp: Option<u32>)
-                           -> Result<String, GhcaDialerError> {
+    pub fn encrypt_account(
+        &self,
+        username: &str,
+        password: &str,
+        fst_timestamp: Option<u32>,
+        sec_timestamp: Option<u32>,
+    ) -> Result<String, GhcaDialerError> {
         Self::validate(username, password)?;
         let name_len = username.len() as u32;
         let pwd_len = password.len() as u32;
@@ -58,11 +59,7 @@ impl GhcaDialer {
         if cursor < 1 {
             cursor += 1;
         }
-        let match_flag = if cursor == pwd_len {
-            1
-        } else {
-            0
-        };
+        let match_flag = if cursor == pwd_len { 1 } else { 0 };
 
         let delta = cursor - match_flag;
         let md5_hash_prefix;
@@ -87,22 +84,24 @@ impl GhcaDialer {
             md5_hash_prefix = md5.finish()[..8].to_hex().to_uppercase();
         }
 
-        let pwd_char_sum = password.as_bytes().iter().fold(0, |sum, x| sum + u32::from(*x));
+        let pwd_char_sum = password
+            .as_bytes()
+            .iter()
+            .fold(0, |sum, x| sum + u32::from(*x));
         let pin = format!("{:04X}", delta ^ pwd_char_sum);
-        Ok(format!("{}{:08X}{}{}{}{}",
-                   self.prefix,
-                   sec_timestamp,
-                   self.version,
-                   md5_hash_prefix,
-                   pin,
-                   username))
+        Ok(format!(
+            "{}{:08X}{}{}{}{}",
+            self.prefix, sec_timestamp, self.version, md5_hash_prefix, pin, username
+        ))
     }
 }
 
 impl Configuration {
     pub fn share_key(&self) -> &'static str {
         match *self {
-            Configuration::SichuanMac => "aI0fC8RslXg6HXaKAUa6kpvcAXszvTcxYP8jmS9sBnVfIqTRdJS1eZNHmBjKN28j",
+            Configuration::SichuanMac => {
+                "aI0fC8RslXg6HXaKAUa6kpvcAXszvTcxYP8jmS9sBnVfIqTRdJS1eZNHmBjKN28j"
+            }
         }
     }
 

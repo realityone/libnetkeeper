@@ -11,13 +11,8 @@ md4 = "0.4.1"
 rand = "0.3.15"
 rust-crypto = "0.2.36"
 
-[dependencies.clippy]
-optional = true
-version = "*"
-
 [features]
 default = ["netkeeper", "singlenet", "drcom", "ghca", "srun3k", "ipclient"]
-dev = ["default", "clippy"]
 drcom = []
 ghca = []
 ipclient = []

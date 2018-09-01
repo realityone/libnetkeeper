@@ -1,6 +1,6 @@
 // copy from https://github.com/drcoms/drcom-generic
-use std::io;
 use std::fmt::Debug;
+use std::io;
 
 use common::reader::{ReadBytesError, ReaderHelper};
 
@@ -31,13 +31,17 @@ pub trait DrCOMCommon {
 }
 
 pub trait DrCOMResponseCommon {
-    fn validate_stream<R, V>(input: &mut io::BufReader<R>,
-                             validator: V)
-                             -> Result<(), DrCOMValidateError>
-        where R: io::Read,
-              V: FnOnce(u8) -> bool
+    fn validate_stream<R, V>(
+        input: &mut io::BufReader<R>,
+        validator: V,
+    ) -> Result<(), DrCOMValidateError>
+    where
+        R: io::Read,
+        V: FnOnce(u8) -> bool,
     {
-        let code_bytes = input.read_bytes(1).map_err(DrCOMValidateError::PacketReadError)?;
+        let code_bytes = input
+            .read_bytes(1)
+            .map_err(DrCOMValidateError::PacketReadError)?;
         let code = code_bytes[0];
         if !validator(code) {
             return Err(DrCOMValidateError::CodeMismatch(code));

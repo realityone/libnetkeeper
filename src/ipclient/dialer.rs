@@ -97,15 +97,16 @@ impl MACOpenPacket {
     }
 }
 
-
 #[test]
 fn test_mac_opener_hash_bytes() {
     let bytes1 = [1, 2, 3, 4, 5, 6, 7, 0];
     let hash_bytes1 = MACOpenPacket::hash_bytes(&bytes1, Configuration::GUET.hash_key());
 
-    let bytes2 = [97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 172, 16, 1, 1, 52, 48, 58, 54, 49, 58, 56, 54, 58, 56, 55, 58, 57,
-        70, 58, 70, 49, 0, 0, 0, 1, 0];
+    let bytes2 = [
+        97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        172, 16, 1, 1, 52, 48, 58, 54, 49, 58, 56, 54, 58, 56, 55, 58, 57, 70, 58, 70, 49, 0, 0, 0,
+        1, 0,
+    ];
     let hash_bytes2 = MACOpenPacket::hash_bytes(&bytes2, Configuration::GUET.hash_key());
 
     assert_eq!(hash_bytes1, [0x9c, 0x89, 0xf8, 0x3d]);

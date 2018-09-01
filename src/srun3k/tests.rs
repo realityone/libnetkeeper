@@ -1,5 +1,5 @@
 use common::dialer::Dialer;
-use srun3k::dialer::{Srun3kDialer, Configuration};
+use srun3k::dialer::{Configuration, Srun3kDialer};
 
 #[test]
 fn test_srun3k_v20_username_encrypt() {
