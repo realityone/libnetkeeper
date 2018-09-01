@@ -46,10 +46,10 @@ impl Netkeeper4Dialer {
         }
     }
 
-    fn prepare_md5_bytes(pin27_bytes: [u8; 6], username: &str, padded_key: &str) -> [u8; 64] {
+    fn prepare_md5_bytes(pin27_bytes: [u8; 6], username: &str, padded_key: &str) -> Vec<u8> {
         let padded_bytes = padded_key.as_bytes();
         let name_bytes = username.split('@').nth(0).unwrap().as_bytes();
-        let mut md5_bytes = [0u8; 64];
+        let mut md5_bytes = vec![0u8; 64];
         let (mut j, mut k, mut l) = (0usize, 0usize, 0usize);
         for (i, item) in md5_bytes.iter_mut().enumerate().take(64) {
             match i % 3 {
@@ -131,7 +131,7 @@ fn test_prepare_md5_bytes() {
         "112233445566778899aabbccddeeffgg",
     );
     assert_eq!(
-        md5_bytes.to_vec(),
+        md5_bytes,
         vec![
             48, 0, 49, 53, 1, 49, 56, 2, 50, 48, 3, 50, 50, 4, 51, 50, 5, 51, 55, 52, 52, 56, 53,
             53, 57, 54, 54, 56, 55, 55, 57, 56, 56, 57, 57, 97, 97, 98, 98, 99, 99, 100, 100, 101,
