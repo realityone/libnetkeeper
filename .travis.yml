@@ -2,7 +2,7 @@ language: rust
 
 rust:
   - stable
-  - nightly
+  - nightly-2018-07-07
 
 before_install:
   - sudo apt-get -qq update
@@ -14,7 +14,7 @@ matrix:
         - cargo install clippy --verbose --force
         - cargo clippy -- -D clippy
   include:
-  - rust: "nightly"
+  - rust: "nightly-2018-07-07"
     script:
       - cargo install clippy --verbose --force
       - cargo clippy -- -D clippy
