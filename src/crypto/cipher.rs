@@ -1,12 +1,11 @@
-use rust_crypto::buffer::{ReadBuffer, WriteBuffer};
-use rust_crypto::{aes, blockmodes, buffer, symmetriccipher};
+use aes_frast::aes_core;
+use aes_frast::aes_with_operation_mode::{ecb_dec, ecb_enc};
+use aes_frast::padding_128bit::{de_ansix923_pkcs7, pa_pkcs7};
 
 #[derive(Debug)]
 pub enum CipherError {
     // Expect length {}, got {}
     KeyLengthMismatch(usize, usize),
-    EncryptError(symmetriccipher::SymmetricCipherError),
-    DecryptError(symmetriccipher::SymmetricCipherError),
     BufferOverflow,
 }
 
@@ -35,39 +34,23 @@ impl AES_128_ECB {
 
 impl SimpleCipher for AES_128_ECB {
     fn encrypt(&self, plain_bytes: &[u8]) -> Result<Vec<u8>, CipherError> {
-        let mut encrypter =
-            aes::ecb_encryptor(aes::KeySize::KeySize128, &self.key, blockmodes::PkcsPadding);
-        let mut input = buffer::RefReadBuffer::new(plain_bytes);
-        let mut output_buff = vec![0u8; plain_bytes.len() + 16];
-        let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
-
-        match encrypter
-            .encrypt(&mut input, &mut output, true)
-            .map_err(CipherError::EncryptError)?
-        {
-            buffer::BufferResult::BufferUnderflow => {
-                Ok(output.take_read_buffer().take_remaining().to_vec())
-            }
-            buffer::BufferResult::BufferOverflow => Err(CipherError::BufferOverflow),
-        }
+        let mut data = plain_bytes.to_vec();
+        pa_pkcs7(&mut data);
+        let mut result = vec![0u8; data.len()];
+        let mut scheduled_keys: [u32; 44] = [0; 44];
+        aes_core::setkey_enc_k128(&self.key, &mut scheduled_keys);
+        ecb_enc(&data, &mut result, &scheduled_keys);
+        Ok(result)
     }
 
     fn decrypt(&self, encrypted_bytes: &[u8]) -> Result<Vec<u8>, CipherError> {
-        let mut decrypter =
-            aes::ecb_decryptor(aes::KeySize::KeySize128, &self.key, blockmodes::PkcsPadding);
-        let mut input = buffer::RefReadBuffer::new(encrypted_bytes);
-        let mut output_buff = vec![0u8; encrypted_bytes.len()];
-        let mut output = buffer::RefWriteBuffer::new(output_buff.as_mut_slice());
-
-        match decrypter
-            .decrypt(&mut input, &mut output, true)
-            .map_err(CipherError::DecryptError)?
-        {
-            buffer::BufferResult::BufferUnderflow => {
-                Ok(output.take_read_buffer().take_remaining().to_vec())
-            }
-            buffer::BufferResult::BufferOverflow => Err(CipherError::BufferOverflow),
-        }
+        let data = encrypted_bytes.to_vec();
+        let mut result = vec![0u8; data.len()];
+        let mut scheduled_keys: [u32; 44] = [0; 44];
+        aes_core::setkey_dec_k128(&self.key, &mut scheduled_keys);
+        ecb_dec(&data, &mut result, &scheduled_keys);
+        de_ansix923_pkcs7(&mut result);
+        Ok(result)
     }
 }
 
