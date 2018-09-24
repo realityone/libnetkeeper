@@ -1,11 +1,13 @@
 #![allow(dead_code)]
 
+extern crate aes_frast;
 extern crate byteorder;
 extern crate chrono;
-extern crate crypto as rust_crypto;
 extern crate linked_hash_map;
 extern crate md4;
+extern crate md5;
 extern crate rand;
+extern crate sha1;
 
 #[cfg(feature = "drcom")]
 pub mod drcom;

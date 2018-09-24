@@ -1,7 +1,7 @@
 use md4;
 use md4::Digest as Md4Digest;
-use rust_crypto::digest::Digest;
-use rust_crypto::{md5, sha1};
+use md5;
+use sha1;
 
 #[derive(Debug, Clone, Copy)]
 pub enum HasherType {
@@ -19,34 +19,9 @@ pub trait Hasher {
 
 struct MD4(md4::Md4);
 
-struct MD5(md5::Md5);
+struct MD5(md5::Context);
 
 struct SHA1(sha1::Sha1);
-
-macro_rules! impl_for_rust_crypto_digest {
-    ($digest:path, $hasher:ident) => {
-        impl $hasher {
-            fn new() -> Self {
-                $hasher(<$digest>::new())
-            }
-        }
-
-        impl Hasher for $hasher {
-            fn update(&mut self, bytes: &[u8]) {
-                self.0.input(bytes)
-            }
-
-            fn finish(&mut self) -> Vec<u8> {
-                let mut result = vec![0u8; self.0.output_bytes()];
-                self.0.result(result.as_mut_slice());
-                result
-            }
-        }
-    };
-}
-
-impl_for_rust_crypto_digest!(md5::Md5, MD5);
-impl_for_rust_crypto_digest!(sha1::Sha1, SHA1);
 
 impl MD4 {
     fn new() -> Self {
@@ -61,6 +36,38 @@ impl Hasher for MD4 {
 
     fn finish(&mut self) -> Vec<u8> {
         self.0.result().to_vec()
+    }
+}
+
+impl MD5 {
+    fn new() -> Self {
+        MD5(md5::Context::new())
+    }
+}
+
+impl Hasher for MD5 {
+    fn update(&mut self, bytes: &[u8]) {
+        self.0.consume(bytes)
+    }
+
+    fn finish(&mut self) -> Vec<u8> {
+        self.0.compute().to_vec()
+    }
+}
+
+impl SHA1 {
+    fn new() -> Self {
+        SHA1(sha1::Sha1::new())
+    }
+}
+
+impl Hasher for SHA1 {
+    fn update(&mut self, bytes: &[u8]) {
+        self.0.update(bytes)
+    }
+
+    fn finish(&mut self) -> Vec<u8> {
+        self.0.digest().bytes().to_vec()
     }
 }
 
