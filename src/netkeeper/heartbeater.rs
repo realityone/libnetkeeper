@@ -22,15 +22,15 @@ type PacketResult<T> = result::Result<T, NetkeeperHeartbeatError>;
 #[derive(Debug)]
 pub struct Frame {
     type_name: String,
-    content: LinkedHashMap<String, String>,
+    content:   LinkedHashMap<String, String>,
 }
 
 #[derive(Debug)]
 pub struct Packet {
     magic_number: u16,
-    version: u8,
-    code: u16,
-    frame: Frame,
+    version:      u8,
+    code:         u16,
+    frame:        Frame,
 }
 
 pub struct PacketUtils;
@@ -271,7 +271,7 @@ fn test_calc_heartbeat_pin() {
 fn test_aes_128_ecb_encrypt() {
     use crypto::cipher::AES_128_ECB;
 
-    let aes = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
+    let aes = AES_128_ECB::from_key(b"xlzjhrprotocol3x").unwrap();
     let plain_text = "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000";
     let encrypted = aes.encrypt(plain_text.as_bytes()).unwrap();
     let real_data = vec![

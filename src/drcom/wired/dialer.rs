@@ -40,18 +40,18 @@ pub struct ChallengeResponse {
 pub struct TagOSVersionInfo {
     major_version: u32,
     minor_version: u32,
-    build_number: u32,
-    platform_id: u32,
-    service_pack: String,
+    build_number:  u32,
+    platform_id:   u32,
+    service_pack:  String,
 }
 
 #[derive(Debug)]
 pub struct TagHostInfo {
-    hostname: String,
-    dns_server: Ipv4Addr,
-    dhcp_server: Ipv4Addr,
+    hostname:          String,
+    dns_server:        Ipv4Addr,
+    dhcp_server:       Ipv4Addr,
     backup_dns_server: Ipv4Addr,
-    wins_ips: [Ipv4Addr; 2],
+    wins_ips:          [Ipv4Addr; 2],
 }
 
 #[derive(Debug)]
@@ -61,7 +61,7 @@ struct TagLDAPAuthInfo {
 
 #[derive(Debug)]
 struct TagAccountInfo {
-    username: String,
+    username:          String,
     password_md5_hash: [u8; 16],
 }
 
@@ -78,30 +78,30 @@ struct TagAdapterInfo {
 struct TagAuthExtraInfo<'a> {
     origin_data: &'a [u8],
     mac_address: [u8; 6],
-    option: u16,
+    option:      u16,
 }
 
 #[derive(Debug)]
 struct TagAuthVersionInfo {
     client_version: u8,
-    dog_version: u8,
+    dog_version:    u8,
 }
 
 #[derive(Debug)]
 pub struct LoginRequest {
-    mac_address: [u8; 6],
-    account_info: TagAccountInfo,
+    mac_address:          [u8; 6],
+    account_info:         TagAccountInfo,
     control_check_status: u8,
-    adapter_info: TagAdapterInfo,
-    dog_flag: u8,
-    host_info: TagHostInfo,
-    os_version_info: TagOSVersionInfo,
-    auth_version_info: TagAuthVersionInfo,
-    auto_logout: bool,
-    broadcast_mode: bool,
-    random: u16,
-    ldap_auth_info: Option<TagLDAPAuthInfo>,
-    auth_extra_option: u16,
+    adapter_info:         TagAdapterInfo,
+    dog_flag:             u8,
+    host_info:            TagHostInfo,
+    os_version_info:      TagOSVersionInfo,
+    auth_version_info:    TagAuthVersionInfo,
+    auto_logout:          bool,
+    broadcast_mode:       bool,
+    random:               u16,
+    ldap_auth_info:       Option<TagLDAPAuthInfo>,
+    auth_extra_option:    u16,
 }
 
 #[derive(Debug)]
@@ -111,31 +111,31 @@ pub struct LoginResponse {
 
 #[derive(Debug)]
 pub struct LoginAccount {
-    username: String,
-    password: String,
-    hash_salt: [u8; 4],
-    adapter_count: u8,
-    mac_address: [u8; 6],
-    ipaddresses: [Ipv4Addr; 4],
-    dog_flag: u8,
-    client_version: u8,
-    dog_version: u8,
+    username:             String,
+    password:             String,
+    hash_salt:            [u8; 4],
+    adapter_count:        u8,
+    mac_address:          [u8; 6],
+    ipaddresses:          [Ipv4Addr; 4],
+    dog_flag:             u8,
+    client_version:       u8,
+    dog_version:          u8,
     control_check_status: u8,
-    ror_version: bool,
-    hostname: String,
-    service_pack: String,
-    dns_server: Ipv4Addr,
-    dhcp_server: Ipv4Addr,
-    backup_dns_server: Ipv4Addr,
-    wins_ips: [Ipv4Addr; 2],
-    major_version: u32,
-    minor_version: u32,
-    build_number: u32,
-    platform_id: u32,
-    auto_logout: bool,
-    broadcast_mode: bool,
-    random: u16,
-    auth_extra_option: u16,
+    ror_version:          bool,
+    hostname:             String,
+    service_pack:         String,
+    dns_server:           Ipv4Addr,
+    dhcp_server:          Ipv4Addr,
+    backup_dns_server:    Ipv4Addr,
+    wins_ips:             [Ipv4Addr; 2],
+    major_version:        u32,
+    minor_version:        u32,
+    build_number:         u32,
+    platform_id:          u32,
+    auto_logout:          bool,
+    broadcast_mode:       bool,
+    random:               u16,
+    auth_extra_option:    u16,
 }
 
 const SERVICE_PACK_MAX_LEN: usize = 32;
@@ -188,11 +188,8 @@ impl ChallengeRequest {
 
     #[inline]
     fn packet_length() -> usize {
-        1 + // code 
-            1 + // sequence size
-            Self::sequence_length() +
-            4 + // magic number
-            12 // padding?
+        // code + sequence size + () + magic number + padding?
+        1 + 1 + Self::sequence_length() + 4 + 12
     }
 
     #[inline]
@@ -241,17 +238,14 @@ impl TagOSVersionInfo {
 
     #[inline]
     fn attribute_length() -> usize {
-        4 + // attribute_length
-            Self::content_length()
+        // attribute_length + ()
+        4 + Self::content_length()
     }
 
     #[inline]
     fn content_length() -> usize {
-        4 + // major_version
-            4 + // minor_version
-            4 + // build_number
-            4 + // platform_id
-            128 // service_pack
+        // major_version + minor_version + build_number + platform_id + service_pack
+        4 + 4 + 4 + 4 + 128
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -282,11 +276,8 @@ impl TagHostInfo {
 
     #[inline]
     fn attribute_length() -> usize {
-        32 + // hostname
-            4 + // dns_server
-            4 + // dhcp_server
-            4 + // backup_dns_server
-            8 // wins_ips
+        // hostname + dns_server + dhcp_server + backup_dns_server + wins_ips
+        32 + 4 + 4 + 4 + 8
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -316,9 +307,8 @@ impl TagLDAPAuthInfo {
     }
 
     fn attribute_length(&self) -> usize {
-        1 + // code
-            1 + // password_ror_hash length
-            self.password_ror_hash.len()
+        // code + password_ror_hash length + ()
+        1 + 1 + self.password_ror_hash.len()
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -417,7 +407,7 @@ impl LoginAccount {
 
     fn tag_account_info(&self) -> LoginResult<TagAccountInfo> {
         Ok(TagAccountInfo {
-            username: self.username.clone(),
+            username:          self.username.clone(),
             password_md5_hash: self.password_md5_hash(),
         })
     }
@@ -425,7 +415,7 @@ impl LoginAccount {
     fn tag_auth_version(&self) -> LoginResult<TagAuthVersionInfo> {
         Ok(TagAuthVersionInfo {
             client_version: self.client_version,
-            dog_version: self.dog_version,
+            dog_version:    self.dog_version,
         })
     }
 
@@ -449,41 +439,41 @@ impl LoginAccount {
         Ok(TagOSVersionInfo {
             major_version: self.major_version,
             minor_version: self.minor_version,
-            build_number: self.build_number,
-            platform_id: self.platform_id,
-            service_pack: self.service_pack.clone(),
+            build_number:  self.build_number,
+            platform_id:   self.platform_id,
+            service_pack:  self.service_pack.clone(),
         })
     }
 
     fn tag_host_info(&self) -> LoginResult<TagHostInfo> {
         Ok(TagHostInfo {
-            hostname: self.hostname.clone(),
-            dns_server: self.dns_server,
-            dhcp_server: self.dhcp_server,
+            hostname:          self.hostname.clone(),
+            dns_server:        self.dns_server,
+            dhcp_server:       self.dhcp_server,
             backup_dns_server: self.backup_dns_server,
-            wins_ips: self.wins_ips,
+            wins_ips:          self.wins_ips,
         })
     }
 
     pub fn login_request(&self) -> LoginResult<LoginRequest> {
         Ok(LoginRequest {
-            mac_address: self.mac_address,
-            account_info: self.tag_account_info()?,
+            mac_address:          self.mac_address,
+            account_info:         self.tag_account_info()?,
             control_check_status: self.control_check_status,
-            adapter_info: self.tag_adapter_info()?,
-            dog_flag: self.dog_flag,
-            host_info: self.tag_host_info()?,
-            os_version_info: self.tag_os_version()?,
-            auth_version_info: self.tag_auth_version()?,
-            auto_logout: self.auto_logout,
-            broadcast_mode: self.broadcast_mode,
-            random: self.random,
-            ldap_auth_info: if self.ror_version {
+            adapter_info:         self.tag_adapter_info()?,
+            dog_flag:             self.dog_flag,
+            host_info:            self.tag_host_info()?,
+            os_version_info:      self.tag_os_version()?,
+            auth_version_info:    self.tag_auth_version()?,
+            auto_logout:          self.auto_logout,
+            broadcast_mode:       self.broadcast_mode,
+            random:               self.random,
+            ldap_auth_info:       if self.ror_version {
                 Some(self.tag_ldap_auth_info()?)
             } else {
                 None
             },
-            auth_extra_option: self.auth_extra_option,
+            auth_extra_option:    self.auth_extra_option,
         })
     }
 
@@ -531,8 +521,8 @@ impl TagAccountInfo {
     }
 
     fn attribute_length(&self) -> usize {
-        2 + // attribute length
-            self.content_length()
+        // attribute length + ()
+        2 + self.content_length()
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -548,10 +538,8 @@ impl TagAccountInfo {
 
 impl TagAdapterInfo {
     fn attribute_length() -> usize {
-        1 + // adapter counts
-            6 + // hashed mac address
-            16 + // password_md5_hash_validator
-            4 * 4 // ipaddress * 4
+        // adapter counts + hashed mac address + password_md5_hash_validator + ipaddress * 4
+        1 + 6 + 16 + 4 * 4
     }
 
     fn hash_mac_address(mac_address: [u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
@@ -591,8 +579,8 @@ impl TagAdapterInfo {
 
 impl TagAuthVersionInfo {
     fn attribute_length() -> usize {
-        1 + // client version
-            1 // dog version
+        // client version + dog version
+        1 + 1
     }
 
     fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -618,16 +606,14 @@ impl<'a> TagAuthExtraInfo<'a> {
 
     #[inline]
     fn attribute_length() -> usize {
-        1 + // code
-            1 + // content length
-            Self::content_length()
+        // code + content length
+        1 + 1 + Self::content_length()
     }
 
     #[inline]
     fn content_length() -> usize {
-        4 + // checksum bytes
-            2 + // option bytes
-            6 // mac_address
+        // checksum bytes + option bytes + mac_address
+        4 + 2 + 6
     }
 
     #[inline]
@@ -660,19 +646,20 @@ impl<'a> TagAuthExtraInfo<'a> {
 
 impl LoginRequest {
     fn packet_length(&self) -> usize {
-        2 + // magic number
-            self.account_info.attribute_length() +
-            20 + // padding?
-            1 + // control_check_status
-            TagAdapterInfo::attribute_length() +
-            match self.ldap_auth_info {
+        // magic number + () + padding? + () + control_check_status
+        // + () + () + () + auto logout + broadcast mode +  random number
+        2 + self.account_info.attribute_length()
+            + 20
+            + 1
+            + TagAdapterInfo::attribute_length()
+            + match self.ldap_auth_info {
                 Some(ref l) => l.attribute_length(),
                 None => 0,
-            } +
-            TagAuthExtraInfo::attribute_length() +
-            1 + // auto logout
-            1 + // broadcast mode
-            2 // random number
+            }
+            + TagAuthExtraInfo::attribute_length()
+            + 1
+            + 1
+            + 2
     }
 
     pub fn as_bytes(&self) -> LoginResult<Vec<u8>> {
@@ -718,7 +705,7 @@ impl LoginRequest {
                 let auth_extra_info = TagAuthExtraInfo {
                     origin_data: &result,
                     mac_address: self.mac_address,
-                    option: self.auth_extra_option,
+                    option:      self.auth_extra_option,
                 };
                 auth_extra_bytes = auth_extra_info.as_bytes()?;
             }
@@ -823,9 +810,7 @@ fn test_login_packet_attributes() {
 fn test_password_hash() {
     assert_eq!(
         LoginAccount::ror(&[253u8; 16], "1234567812345678").unwrap(),
-        vec![
-            102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46,
-        ]
+        vec![102, 126, 118, 78, 70, 94, 86, 46, 102, 126, 118, 78, 70, 94, 86, 46,]
     );
 
     let mut la = LoginAccount::new("usernameusername", "password", [1, 2, 3, 4]);

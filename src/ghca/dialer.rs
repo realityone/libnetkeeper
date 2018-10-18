@@ -18,16 +18,16 @@ pub enum Configuration {
 #[derive(Debug)]
 pub struct GhcaDialer {
     pub share_key: String,
-    pub prefix: String,
-    pub version: String,
+    pub prefix:    String,
+    pub version:   String,
 }
 
 impl GhcaDialer {
     fn new(share_key: &str, prefix: &str, version: &str) -> Self {
         GhcaDialer {
             share_key: share_key.to_string(),
-            prefix: prefix.to_string(),
-            version: version.to_string(),
+            prefix:    prefix.to_string(),
+            version:   version.to_string(),
         }
     }
 

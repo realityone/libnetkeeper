@@ -79,11 +79,11 @@ pub enum AttributeType {
 
 #[derive(Debug)]
 pub struct Attribute {
-    name: String,
-    parent_id: u8,
-    attribute_id: u8,
+    name:          String,
+    parent_id:     u8,
+    attribute_id:  u8,
     value_type_id: u8,
-    data: Vec<u8>,
+    data:          Vec<u8>,
 }
 
 pub struct KeepaliveDataCalculator;

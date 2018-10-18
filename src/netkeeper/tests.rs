@@ -24,7 +24,7 @@ fn test_netkeeper_heartbeat() {
     frame.add("KEY", "123456");
 
     let packet = Packet::new(30 as u8, 0x0205, frame);
-    let encrypter = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
+    let encrypter = AES_128_ECB::from_key(b"xlzjhrprotocol3x").unwrap();
 
     let packet_bytes = packet.as_bytes(&encrypter).unwrap();
     let real_bytes = vec![
@@ -43,7 +43,7 @@ fn test_netkeeper_heartbeat() {
 
 #[test]
 fn test_netkeeper_heartbeat_parse() {
-    let encrypter = AES_128_ECB::new(b"xlzjhrprotocol3x").unwrap();
+    let encrypter = AES_128_ECB::from_key(b"xlzjhrprotocol3x").unwrap();
     let origin_bytes: Vec<u8> = vec![
         72, 82, 51, 48, 2, 5, 0, 0, 0, 160, 66, 100, 164, 73, 167, 41, 222, 211, 188, 8, 14, 110,
         252, 246, 121, 119, 79, 18, 254, 193, 72, 163, 54, 136, 248, 60, 221, 177, 221, 0, 13, 10,

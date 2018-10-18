@@ -26,14 +26,14 @@ pub enum Configuration {
 #[derive(Debug)]
 pub struct NetkeeperDialer {
     pub share_key: String,
-    pub prefix: String,
+    pub prefix:    String,
 }
 
 impl NetkeeperDialer {
     pub fn new(share_key: &str, prefix: &str) -> Self {
         NetkeeperDialer {
             share_key: share_key.to_string(),
-            prefix: prefix.to_string(),
+            prefix:    prefix.to_string(),
         }
     }
 

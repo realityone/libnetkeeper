@@ -13,8 +13,8 @@ pub enum Configuration {
 #[derive(Debug)]
 pub struct Netkeeper4Dialer {
     pub share_key: String,
-    pub prefix: String,
-    pub padding: String,
+    pub prefix:    String,
+    pub padding:   String,
 }
 
 impl Configuration {
@@ -41,8 +41,8 @@ impl Netkeeper4Dialer {
     pub fn new(share_key: &str, prefix: &str, padding: &str) -> Self {
         Netkeeper4Dialer {
             share_key: share_key.to_string(),
-            prefix: prefix.to_string(),
-            padding: padding.to_string(),
+            prefix:    prefix.to_string(),
+            padding:   padding.to_string(),
         }
     }
 
