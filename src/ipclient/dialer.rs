@@ -14,10 +14,10 @@ pub enum MACOpenErr {
 
 #[derive(Debug)]
 pub struct MACOpenPacket {
-    username: String,
-    ipaddress: Ipv4Addr,
+    username:    String,
+    ipaddress:   Ipv4Addr,
     mac_address: String,
-    isp: ISPCode,
+    isp:         ISPCode,
 }
 
 #[derive(Debug, Clone, Copy)]

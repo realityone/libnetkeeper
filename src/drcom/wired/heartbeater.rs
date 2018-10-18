@@ -20,26 +20,26 @@ type HeartbeatResult<T> = result::Result<T, HeartbeatError>;
 
 #[derive(Debug)]
 pub struct PhaseOneRequest {
-    timestamp: u32,
-    hash_salt: [u8; 4],
-    password: String,
+    timestamp:      u32,
+    hash_salt:      [u8; 4],
+    password:       String,
     keep_alive_key: [u8; 4],
 }
 
 #[derive(Debug)]
 pub struct PhaseTwoRequest<'a> {
-    sequence: u8,
+    sequence:       u8,
     keep_alive_key: [u8; 4],
-    flag: &'a (DrCOMFlag + 'a),
-    type_id: u8,
-    host_ip: Ipv4Addr,
+    flag:           &'a (DrCOMFlag + 'a),
+    type_id:        u8,
+    host_ip:        Ipv4Addr,
 }
 
 pub struct PhaseOneResponse;
 
 #[derive(Debug)]
 pub struct PhaseTwoResponse {
-    pub sequence: u8,
+    pub sequence:       u8,
     pub keep_alive_key: [u8; 4],
 }
 
@@ -71,12 +71,8 @@ impl PhaseOneRequest {
     }
 
     fn packet_length() -> usize {
-        1 + // code
-            16 + // password hash
-            3 + // padding?
-            4 + // key bytes
-            2 + // timestamp hash
-            4 // padding?
+        // code + password hash + padding? + key bytes + timestamp hash + padding?
+        1 + 16 + 3 + 4 + 2 + 4
     }
 
     fn password_hash(&self) -> [u8; 16] {
@@ -118,7 +114,8 @@ impl PhaseOneResponse {
         R: io::Read,
     {
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code()).map_err(HeartbeatError::ValidateError)?;
+        Self::validate_stream(input, |c| c == Self::code())
+            .map_err(HeartbeatError::ValidateError)?;
         Ok(PhaseOneResponse {})
     }
 }
@@ -160,28 +157,20 @@ impl<'a> PhaseTwoRequest<'a> {
 
     #[inline]
     fn packet_length() -> usize {
-        1 + // code
-            1 + // sequence
-            2 + // content length
-            1 + // uid length
-            Self::uid_length() +
-            4 + // keep alive key
-            4 + // padding?
-            Self::footer_length()
+        // code + sequence + content length + uid length + keep alive key + padding?
+        1 + 1 + 2 + 1 + Self::uid_length() + 4 + 4 + Self::footer_length()
     }
 
     #[inline]
     fn footer_length() -> usize {
-        4 + // crc
-            4 + // source ip
-            8 // padding?
+        // crc + source ip + padding?
+        4 + 4 + 8
     }
 
     #[inline]
     fn uid_length() -> usize {
-        1 + // type id
-            4 + // keep alive flag
-            6 // padding?
+        // type id + keep alive flag + padding?
+        1 + 4 + 6
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -224,7 +213,8 @@ impl PhaseTwoResponse {
         const PHASE_TWO_RESPONSE_LENGTH: u16 = 0x28;
 
         // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code()).map_err(HeartbeatError::ValidateError)?;
+        Self::validate_stream(input, |c| c == Self::code())
+            .map_err(HeartbeatError::ValidateError)?;
 
         let sequence = input
             .read_bytes(1)

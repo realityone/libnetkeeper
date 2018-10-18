@@ -13,17 +13,17 @@ pub enum Configuration {
 
 #[derive(Debug)]
 pub struct SingleNetDialer {
-    share_key: String,
+    share_key:  String,
     secret_key: String,
-    key_table: String,
+    key_table:  String,
 }
 
 impl SingleNetDialer {
     pub fn new(share_key: &str, secret_key: &str, key_table: &str) -> Self {
         SingleNetDialer {
-            share_key: share_key.to_string(),
+            share_key:  share_key.to_string(),
             secret_key: secret_key.to_string(),
-            key_table: key_table.to_string(),
+            key_table:  key_table.to_string(),
         }
     }
 

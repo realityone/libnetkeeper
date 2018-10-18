@@ -62,26 +62,26 @@ pub struct ChallengeRequest {
 #[derive(Debug)]
 pub struct ChallengeResponse {
     pub challenge_seed: u32,
-    pub source_ip: Ipv4Addr,
+    pub source_ip:      Ipv4Addr,
 }
 
 #[derive(Debug)]
 pub struct HeartbeatRequest<'a> {
-    sequence: u8,
-    type_id: u8,
-    uid_length: u8,
-    mac_address: [u8; 6],
-    source_ip: Ipv4Addr,
-    flag: &'a (DrCOMFlag + 'a),
+    sequence:       u8,
+    type_id:        u8,
+    uid_length:     u8,
+    mac_address:    [u8; 6],
+    source_ip:      Ipv4Addr,
+    flag:           &'a (DrCOMFlag + 'a),
     challenge_seed: u32,
 }
 
 #[derive(Debug)]
 pub struct KeepAliveRequest<'a> {
-    sequence: u8,
-    type_id: u8,
-    source_ip: Ipv4Addr,
-    flag: &'a (DrCOMFlag + 'a),
+    sequence:        u8,
+    type_id:         u8,
+    source_ip:       Ipv4Addr,
+    flag:            &'a (DrCOMFlag + 'a),
     keep_alive_seed: u32,
 }
 
@@ -190,15 +190,14 @@ impl ChallengeRequest {
 
     #[inline]
     fn header_length() -> usize {
-        1 + // code
-            1 // sequence
+        // code + sequence
+        1 + 1
     }
 
     #[inline]
     fn packet_length() -> usize {
-        Self::header_length() +
-            4 + // magic number
-            2 // padding?
+        // header + magic number +  padding?
+        Self::header_length() + 4 + 2
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
@@ -293,25 +292,20 @@ impl<'a> HeartbeatRequest<'a> {
 
     #[inline]
     fn header_length() -> usize {
-        1 + // code 
-            1 + // sequence
-            2 // packet_length
+        // code + sequence + packet_length
+        1 + 1 + 2
     }
 
     #[inline]
     fn content_length() -> usize {
-        1 + // type_id
-            1 + // uid_length
-            6 + // mac_address
-            4 + // source_ip
-            4 + // pppoe_flag
-            4 // challenge_seed
+        // type_id + uid_length + mac_address + source_ip + pppoe_flag + challenge_seed
+        1 + 1 + 6 + 4 + 4 + 4 //
     }
 
     #[inline]
     fn footer_length() -> usize {
-        8 + // crc_hash
-            16 * 4 // padding?
+        // crc_hash +  padding?
+        8 + 16 * 4
     }
 
     #[inline]
@@ -396,27 +390,20 @@ impl<'a> KeepAliveRequest<'a> {
 
     #[inline]
     fn packet_length() -> usize {
-        1 + // code
-            1 + // sequence
-            2 + // packet length
-            1 + // uid length
-            Self::uid_length() +
-            4 + // keep alive seed
-            Self::footer_length()
+        // code + sequence + packet length + uid length + keep alive seed
+        1 + 1 + 2 + 1 + Self::uid_length() + 4 + Self::footer_length()
     }
 
     #[inline]
     fn uid_length() -> usize {
-        1 + // type id
-            4 + // keep alive flag
-            6 // padding?
+        // type id + keep alive flag + padding?
+        1 + 4 + 6
     }
 
     #[inline]
     fn footer_length() -> usize {
-        8 + // crc
-            4 + // source ip
-            8 // padding?
+        // crc + source ip + padding?
+        8 + 4 + 8
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {

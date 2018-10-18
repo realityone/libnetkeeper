@@ -38,12 +38,12 @@ pub enum PacketCode {
 
 #[derive(Debug)]
 pub struct Packet {
-    magic_number: u16,
-    length: u16,
-    code: PacketCode,
-    seq: u8,
+    magic_number:  u16,
+    length:        u16,
+    code:          PacketCode,
+    seq:           u8,
     authorization: [u8; 16],
-    attributes: Vec<Attribute>,
+    attributes:    Vec<Attribute>,
 }
 
 pub struct PacketAuthenticator {
