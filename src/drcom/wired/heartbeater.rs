@@ -30,7 +30,7 @@ pub struct PhaseOneRequest {
 pub struct PhaseTwoRequest<'a> {
     sequence:       u8,
     keep_alive_key: [u8; 4],
-    flag:           &'a (DrCOMFlag + 'a),
+    flag:           &'a (dyn DrCOMFlag + 'a),
     type_id:        u8,
     host_ip:        Ipv4Addr,
 }

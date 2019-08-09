@@ -72,7 +72,7 @@ pub struct HeartbeatRequest<'a> {
     uid_length:     u8,
     mac_address:    [u8; 6],
     source_ip:      Ipv4Addr,
-    flag:           &'a (DrCOMFlag + 'a),
+    flag:           &'a (dyn DrCOMFlag + 'a),
     challenge_seed: u32,
 }
 
@@ -81,7 +81,7 @@ pub struct KeepAliveRequest<'a> {
     sequence:        u8,
     type_id:         u8,
     source_ip:       Ipv4Addr,
-    flag:            &'a (DrCOMFlag + 'a),
+    flag:            &'a (dyn DrCOMFlag + 'a),
     keep_alive_seed: u32,
 }
 
@@ -91,7 +91,7 @@ pub struct KeepAliveResponse {
 }
 
 trait CRCHasher {
-    fn hasher(&self) -> Box<Hasher>;
+    fn hasher(&self) -> Box<dyn Hasher>;
     fn retain_postions(&self) -> [usize; 8];
 
     fn hash(&self, bytes: &[u8]) -> [u8; 8] {
@@ -137,9 +137,9 @@ impl Hasher for NoneHasher {
 }
 
 impl CRCHasher for CRCHasherType {
-    fn hasher(&self) -> Box<Hasher> {
+    fn hasher(&self) -> Box<dyn Hasher> {
         match *self {
-            CRCHasherType::NONE => Box::new(NoneHasher {}) as Box<Hasher>,
+            CRCHasherType::NONE => Box::new(NoneHasher {}) as Box<dyn Hasher>,
             CRCHasherType::MD5 => HasherBuilder::build(HasherType::MD5),
             CRCHasherType::MD4 => HasherBuilder::build(HasherType::MD4),
             CRCHasherType::SHA1 => HasherBuilder::build(HasherType::SHA1),

@@ -72,11 +72,11 @@ impl Hasher for SHA1 {
 }
 
 impl HasherBuilder {
-    pub fn build(type_: HasherType) -> Box<Hasher> {
+    pub fn build(type_: HasherType) -> Box<dyn Hasher> {
         match type_ {
-            HasherType::MD4 => Box::new(MD4::new()) as Box<Hasher>,
-            HasherType::MD5 => Box::new(MD5::new()) as Box<Hasher>,
-            HasherType::SHA1 => Box::new(SHA1::new()) as Box<Hasher>,
+            HasherType::MD4 => Box::new(MD4::new()) as Box<dyn Hasher>,
+            HasherType::MD5 => Box::new(MD5::new()) as Box<dyn Hasher>,
+            HasherType::SHA1 => Box::new(SHA1::new()) as Box<dyn Hasher>,
         }
     }
 }
