@@ -176,7 +176,7 @@ impl ChallengeRequest {
     pub fn new(sequence: Option<u16>) -> Self {
         ChallengeRequest {
             sequence: sequence.unwrap_or_else(|| {
-                current_timestamp() as u16 + rand::thread_rng().gen_range(0xF, 0xFF)
+                current_timestamp() as u16 + rand::thread_rng().gen_range(0xF..0xFF)
             }),
         }
     }

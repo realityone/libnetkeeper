@@ -31,11 +31,11 @@ impl MD4 {
 
 impl Hasher for MD4 {
     fn update(&mut self, bytes: &[u8]) {
-        self.0.input(bytes)
+        self.0.update(bytes);
     }
 
     fn finish(&mut self) -> Vec<u8> {
-        self.0.result().to_vec()
+        self.0.clone().finalize().to_vec()
     }
 }
 
@@ -51,7 +51,7 @@ impl Hasher for MD5 {
     }
 
     fn finish(&mut self) -> Vec<u8> {
-        self.0.compute().to_vec()
+        self.0.clone().compute().to_vec()
     }
 }
 
@@ -67,7 +67,7 @@ impl Hasher for SHA1 {
     }
 
     fn finish(&mut self) -> Vec<u8> {
-        self.0.digest().bytes().to_vec()
+        self.0.clone().finalize().to_vec()
     }
 }
 
