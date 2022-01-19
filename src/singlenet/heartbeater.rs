@@ -140,7 +140,6 @@ impl Packet {
             let magic_number = NetworkEndian::read_u16(&magic_number_bytes);
             if magic_number != Self::magic_number() {
                 return Err(SinglenetHeartbeatError::UnexpectedBytes(magic_number_bytes));
-                ;
             }
         }
 

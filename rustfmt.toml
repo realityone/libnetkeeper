@@ -1,4 +1,4 @@
-edition = "2018"
+edition = "2021"
 error_on_line_overflow = true
 error_on_unformatted = true
 struct_field_align_threshold = 20
