@@ -1,6 +1,6 @@
 # libnetkeeper
 
-[![Build Status](https://travis-ci.com/realityone/libnetkeeper.svg?branch=master)](https://travis-ci.com/realityone/libnetkeeper)
+[![CI](https://github.com/realityone/libnetkeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/realityone/libnetkeeper/actions/workflows/ci.yml)
 
 Rust implementations of network authentication algorithms used by several campus and ISP clients.
 
