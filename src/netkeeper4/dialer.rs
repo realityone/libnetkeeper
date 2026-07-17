@@ -1,9 +1,23 @@
-use std::str;
-
 use crate::common::dialer::Dialer;
-use crate::common::utils::current_timestamp;
+use crate::common::error::TimeError;
+use crate::common::utils::resolve_timestamp;
 use crate::crypto::hash::{HasherBuilder, HasherType};
 use crate::netkeeper::dialer::NetkeeperDialer;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Netkeeper4DialerError {
+    #[error("failed to resolve the current timestamp")]
+    Time(#[from] TimeError),
+
+    #[error("padded key is too short: need {required} bytes, got {actual}")]
+    PaddedKeyTooShort { required: usize, actual: usize },
+
+    #[error("hash output is too short: need byte {index}, got {actual} bytes")]
+    HashOutputTooShort { index: usize, actual: usize },
+}
+
+pub type Netkeeper4DialerResult<T> = Result<T, Netkeeper4DialerError>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Configuration {
@@ -46,72 +60,103 @@ impl Netkeeper4Dialer {
         }
     }
 
-    fn prepare_md5_bytes(pin27_bytes: [u8; 6], username: &str, padded_key: &str) -> Vec<u8> {
-        let padded_bytes = padded_key.as_bytes();
-        let name_bytes = username.split('@').nth(0).unwrap().as_bytes();
+    fn prepare_md5_bytes(
+        pin27_bytes: [u8; 6],
+        username: &str,
+        padded_key: &str,
+    ) -> Netkeeper4DialerResult<Vec<u8>> {
+        let padded_bytes =
+            padded_key
+                .as_bytes()
+                .get(..32)
+                .ok_or(Netkeeper4DialerError::PaddedKeyTooShort {
+                    required: 32,
+                    actual: padded_key.len(),
+                })?;
+        let name = username.split_once('@').map_or(username, |(name, _)| name);
+        let name_bytes = name.as_bytes();
         let mut md5_bytes = vec![0u8; 64];
         let (mut j, mut k, mut l) = (0usize, 0usize, 0usize);
         for (i, item) in md5_bytes.iter_mut().enumerate().take(64) {
             match i % 3 {
                 0 => {
-                    if j < name_bytes.len() {
-                        *item = name_bytes[j];
+                    if let Some(value) = name_bytes.get(j) {
+                        *item = *value;
                         j += 1;
                         continue;
                     }
                 }
                 1 => {
-                    if k < 6 {
-                        *item = pin27_bytes[k];
+                    if let Some(value) = pin27_bytes.get(k) {
+                        *item = *value;
                         k += 1;
                         continue;
                     }
                 }
                 2 => {
-                    if l < 32 {
-                        *item = padded_bytes[l];
+                    if let Some(value) = padded_bytes.get(l) {
+                        *item = *value;
                         l += 1;
                         continue;
                     }
                 }
-                _ => unreachable!(),
+                _ => {}
             }
-            if k < 6 {
-                *item = pin27_bytes[k];
+            if let Some(value) = pin27_bytes.get(k) {
+                *item = *value;
                 k += 1;
                 continue;
             }
-            if l < 32 {
-                *item = padded_bytes[l];
+            if let Some(value) = padded_bytes.get(l) {
+                *item = *value;
                 l += 1;
                 continue;
             }
             *item = i as u8;
         }
-        md5_bytes
+        Ok(md5_bytes)
     }
 
-    pub fn encrypt_account(&self, username: &str, timestamp: Option<u32>) -> String {
+    pub fn encrypt_account(
+        &self,
+        username: &str,
+        timestamp: Option<u32>,
+    ) -> Netkeeper4DialerResult<String> {
         let username = username.to_uppercase();
-        let timenow = timestamp.unwrap_or_else(current_timestamp);
+        let timenow = resolve_timestamp(timestamp)?;
         let time_div_by_five: u32 = timenow / 5;
 
         let pin27_bytes: [u8; 6] = NetkeeperDialer::pin27_bytes(time_div_by_five);
-        let pin27_str = str::from_utf8(&pin27_bytes).expect("PIN alphabet is valid UTF-8");
+        let pin27_str: String = pin27_bytes.into_iter().map(char::from).collect();
 
         let pin89_str = {
             let padded = format!("{}{}", self.share_key, self.padding);
             let mut md5 = HasherBuilder::build(HasherType::MD5);
-            md5.update(&Self::prepare_md5_bytes(pin27_bytes, &username, &padded));
+            md5.update(&Self::prepare_md5_bytes(pin27_bytes, &username, &padded)?);
             let hashed_bytes = md5.finish();
-            let x = hashed_bytes[((hashed_bytes[11] & 0xF0) >> 4) as usize];
-            let y = hashed_bytes[((hashed_bytes[13] & 0x3C) >> 2) as usize];
-            let z = hashed_bytes[(hashed_bytes[6] & 0x0F) as usize];
+            let byte_at = |index| {
+                hashed_bytes
+                    .get(index)
+                    .copied()
+                    .ok_or(Netkeeper4DialerError::HashOutputTooShort {
+                        index,
+                        actual: hashed_bytes.len(),
+                    })
+            };
+            let x_index = usize::from((byte_at(11)? & 0xF0) >> 4);
+            let y_index = usize::from((byte_at(13)? & 0x3C) >> 2);
+            let z_index = usize::from(byte_at(6)? & 0x0F);
+            let x = byte_at(x_index)?;
+            let y = byte_at(y_index)?;
+            let z = byte_at(z_index)?;
             let result = ((x & 0xF0) >> 6) + (y & 0x3C) + ((z & 0x0F) << 6);
             format!("{:02x}", result)
         };
 
-        format!("{}{}{}{}", self.prefix, pin27_str, pin89_str, username)
+        Ok(format!(
+            "{}{}{}{}",
+            self.prefix, pin27_str, pin89_str, username
+        ))
     }
 }
 
@@ -129,7 +174,8 @@ fn test_prepare_md5_bytes() {
         [0, 1, 2, 3, 4, 5],
         "05802278989@HYXY.XY",
         "112233445566778899aabbccddeeffgg",
-    );
+    )
+    .unwrap();
     assert_eq!(
         md5_bytes,
         vec![

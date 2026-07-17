@@ -1,16 +1,27 @@
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
 
-use crate::common::bytes::BytesAbleNum;
+use thiserror::Error;
 
 const USERNAME_MAX_LEN: usize = 30;
 const MAC_ADDRESS_LEN: usize = 18;
 
-#[derive(Debug)]
-pub enum MACOpenErr {
-    UsernameTooLong(String),
-    MACAddressError(String),
+#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
+pub enum MacOpenError {
+    #[error("username is too long: maximum {max} bytes, got {actual}")]
+    UsernameTooLong { max: usize, actual: usize },
+
+    #[error("invalid MAC address length: expected {expected} bytes, got {actual}")]
+    InvalidMacAddressLength { expected: usize, actual: usize },
+
+    #[error("internal packet buffer is too short for the {field} field")]
+    PacketBufferTooShort { field: &'static str },
 }
+
+#[deprecated(note = "use MacOpenError")]
+pub type MACOpenErr = MacOpenError;
+
+pub type MacOpenResult<T> = Result<T, MacOpenError>;
 
 #[derive(Debug)]
 pub struct MACOpenPacket {
@@ -49,21 +60,28 @@ impl MACOpenPacket {
         }
     }
 
-    pub fn as_bytes(&self, hash_key: u32) -> Result<Vec<u8>, MACOpenErr> {
+    pub fn as_bytes(&self, hash_key: u32) -> MacOpenResult<Vec<u8>> {
         let mut macopen_packet = Vec::with_capacity(60);
         {
             self.validate()?;
 
             let mut username_bytes = [0; USERNAME_MAX_LEN];
             let mut mac_address_bytes = [0; MAC_ADDRESS_LEN];
-            username_bytes[..self.username.len()].clone_from_slice(self.username.as_bytes());
-            mac_address_bytes[..self.mac_address.len()]
-                .clone_from_slice(self.mac_address.as_bytes());
+            username_bytes
+                .get_mut(..self.username.len())
+                .ok_or(MacOpenError::PacketBufferTooShort { field: "username" })?
+                .copy_from_slice(self.username.as_bytes());
+            mac_address_bytes
+                .get_mut(..self.mac_address.len())
+                .ok_or(MacOpenError::PacketBufferTooShort {
+                    field: "MAC address",
+                })?
+                .copy_from_slice(self.mac_address.as_bytes());
 
             macopen_packet.extend_from_slice(&username_bytes);
             macopen_packet.extend_from_slice(&self.ipaddress.octets());
             macopen_packet.extend_from_slice(&mac_address_bytes);
-            macopen_packet.extend((self.isp as u32).as_bytes_be());
+            macopen_packet.extend_from_slice(&(self.isp as u32).to_be_bytes());
 
             let hash_bytes = Self::hash_bytes(&macopen_packet, hash_key);
             macopen_packet.extend_from_slice(&hash_bytes);
@@ -72,12 +90,18 @@ impl MACOpenPacket {
         Ok(macopen_packet)
     }
 
-    fn validate(&self) -> Result<(), MACOpenErr> {
+    fn validate(&self) -> MacOpenResult<()> {
         if self.username.len() > USERNAME_MAX_LEN - 1 {
-            return Err(MACOpenErr::UsernameTooLong(self.username.clone()));
+            return Err(MacOpenError::UsernameTooLong {
+                max: USERNAME_MAX_LEN - 1,
+                actual: self.username.len(),
+            });
         }
         if self.mac_address.len() != MAC_ADDRESS_LEN - 1 {
-            return Err(MACOpenErr::MACAddressError(self.mac_address.clone()));
+            return Err(MacOpenError::InvalidMacAddressLength {
+                expected: MAC_ADDRESS_LEN - 1,
+                actual: self.mac_address.len(),
+            });
         }
         Ok(())
     }
@@ -89,9 +113,7 @@ impl MACOpenPacket {
         }
         hash &= Wrapping(0x7fff_ffff);
 
-        let mut hash_bytes = [0; 4];
-        (hash.0 as u32).write_bytes_le(&mut hash_bytes);
-        hash_bytes
+        (hash.0 as u32).to_le_bytes()
     }
 }
 

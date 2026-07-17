@@ -1,8 +1,15 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn current_timestamp() -> u32 {
-    SystemTime::now()
+use crate::common::error::TimeError;
+
+pub fn current_timestamp() -> Result<u32, TimeError> {
+    let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("system clock must be after the Unix epoch")
-        .as_secs() as u32
+        .map_err(TimeError::BeforeUnixEpoch)?
+        .as_secs();
+    u32::try_from(seconds).map_err(|_| TimeError::TimestampOutOfRange { seconds })
+}
+
+pub fn resolve_timestamp(timestamp: Option<u32>) -> Result<u32, TimeError> {
+    timestamp.map_or_else(current_timestamp, Ok)
 }

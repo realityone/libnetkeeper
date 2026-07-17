@@ -1,5 +1,6 @@
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
+#[cfg(test)]
 use std::str::FromStr;
 use std::{io, result};
 
@@ -7,7 +8,7 @@ use byteorder::{ByteOrder, NetworkEndian};
 use rand::RngExt;
 
 use crate::common::bytes::{BytesAble, BytesAbleNum};
-use crate::common::hex::ToHex;
+use crate::common::error::TimeError;
 use crate::common::reader::{ReadBytesError, ReaderHelper};
 use crate::common::utils::current_timestamp;
 use crate::crypto::hash::{HasherBuilder, HasherType};
@@ -15,15 +16,21 @@ use crate::drcom::{
     DrCOMCommon, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER, PASSWORD_MAX_LEN,
     USERNAME_MAX_LEN,
 };
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum LoginError {
-    ValidateError(DrCOMValidateError),
-    PacketReadError(ReadBytesError),
-    FieldValueOverflow(usize, usize),
+    #[error("response validation failed: {0}")]
+    ValidateError(#[from] DrCOMValidateError),
+    #[error("failed to read packet: {0}")]
+    PacketReadError(#[from] ReadBytesError),
+    #[error("field value exceeds maximum length: {actual} > {max}")]
+    FieldValueOverflow { actual: usize, max: usize },
+    #[error("failed to obtain current timestamp: {0}")]
+    Time(#[from] TimeError),
 }
 
-type LoginResult<T> = result::Result<T, LoginError>;
+pub type LoginResult<T> = result::Result<T, LoginError>;
 
 #[derive(Debug)]
 pub struct ChallengeRequest {
@@ -146,7 +153,7 @@ macro_rules! validate_field_value_overflow {
     ) => {
         $(
             if $field.len() > $max_size {
-                return Err(LoginError::FieldValueOverflow($field.len(), $max_size));
+                return Err(LoginError::FieldValueOverflow { actual: $field.len(), max: $max_size });
             }
         )*
     }
@@ -172,12 +179,12 @@ impl DrCOMCommon for ChallengeRequest {
 }
 
 impl ChallengeRequest {
-    pub fn new(sequence: Option<u16>) -> Self {
-        ChallengeRequest {
-            sequence: sequence.unwrap_or_else(|| {
-                current_timestamp() as u16 + rand::rng().random_range(0xF..0xFF)
-            }),
-        }
+    pub fn new(sequence: Option<u16>) -> LoginResult<Self> {
+        let sequence = match sequence {
+            Some(value) => value,
+            None => (current_timestamp()? as u16).wrapping_add(rand::rng().random_range(0xF..0xFF)),
+        };
+        Ok(ChallengeRequest { sequence })
     }
 
     #[inline]
@@ -338,7 +345,7 @@ impl LoginAccount {
             ror_version: false,
             hostname: String::from("LIYUANYUAN"),
             service_pack: String::from("8089D"),
-            dns_server: Ipv4Addr::from_str("114.114.114.114").unwrap(),
+            dns_server: Ipv4Addr::new(114, 114, 114, 114),
             dhcp_server: Ipv4Addr::from(0x0),
             backup_dns_server: Ipv4Addr::from(0x0),
             wins_ips: [Ipv4Addr::from(0x0); 2],
@@ -355,10 +362,10 @@ impl LoginAccount {
 
     fn ror(md5_digest: &[u8; 16], password: &str) -> LoginResult<Vec<u8>> {
         if password.len() > PASSWORD_MAX_LEN {
-            return Err(LoginError::FieldValueOverflow(
-                password.len(),
-                PASSWORD_MAX_LEN,
-            ));
+            return Err(LoginError::FieldValueOverflow {
+                actual: password.len(),
+                max: PASSWORD_MAX_LEN,
+            });
         }
 
         let mut result = Vec::with_capacity(PASSWORD_MAX_LEN);
@@ -535,7 +542,7 @@ impl TagAdapterInfo {
 
     fn hash_mac_address(mac_address: [u8; 6], password_md5_hash: &[u8; 16]) -> [u8; 6] {
         let prefix = &password_md5_hash[..6];
-        let prefix_hex_u64 = u64::from_str_radix(&prefix.to_hex(), 16).unwrap();
+        let prefix_hex_u64 = NetworkEndian::read_uint(prefix, 6);
         let mac_address_u64 = NetworkEndian::read_uint(&mac_address, 6);
 
         let mut result = [0u8; 6];
@@ -589,7 +596,9 @@ impl<'a> TagAuthExtraInfo<'a> {
             let mut chunk_vec = chunk.to_vec();
             chunk_vec.extend(vec![0u8; 4 - chunk.len()]);
             chunk_vec.reverse();
-            result ^= Wrapping(u32::from_str_radix(&chunk_vec.to_hex(), 16).unwrap());
+            let mut chunk_bytes = [0u8; 4];
+            chunk_bytes.copy_from_slice(&chunk_vec);
+            result ^= Wrapping(u32::from_be_bytes(chunk_bytes));
         }
         result *= Wrapping(1968);
         result.0

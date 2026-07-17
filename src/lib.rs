@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(clippy::expect_used, clippy::panic, clippy::unwrap_used))]
+
 #[cfg(feature = "drcom")]
 pub mod drcom;
 #[cfg(feature = "ghca")]

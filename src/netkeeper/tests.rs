@@ -7,7 +7,9 @@ use std::io::BufReader;
 #[test]
 fn test_netkeeper_username_encrypt() {
     let dialer = NetkeeperDialer::load_from_config(Configuration::Zhejiang);
-    let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
+    let encrypted = dialer
+        .encrypt_account("05802278989@HYXY.XY", Some(1472483020))
+        .unwrap();
     assert_eq!(encrypted, "\r\n:R#(P 5005802278989@HYXY.XY");
 }
 

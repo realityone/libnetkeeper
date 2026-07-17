@@ -1,12 +1,22 @@
 use aes_frast::aes_core;
 use aes_frast::aes_with_operation_mode::{ecb_dec, ecb_enc};
-use aes_frast::padding_128bit::{de_ansix923_pkcs7, pa_pkcs7};
+use aes_frast::padding_128bit::pa_pkcs7;
+use thiserror::Error;
 
-#[derive(Debug)]
+const AES_BLOCK_SIZE: usize = 16;
+
+#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
 pub enum CipherError {
-    // Expect length {}, got {}
-    KeyLengthMismatch(usize, usize),
-    BufferOverflow,
+    #[error("invalid AES key length: expected {expected} bytes, got {actual}")]
+    InvalidKeyLength { expected: usize, actual: usize },
+
+    #[error(
+        "invalid ciphertext length: expected a non-empty multiple of {block_size}, got {actual}"
+    )]
+    InvalidCiphertextLength { block_size: usize, actual: usize },
+
+    #[error("invalid PKCS#7 padding length {padding_length}")]
+    InvalidPadding { padding_length: usize },
 }
 
 pub trait SimpleCipher {
@@ -22,7 +32,10 @@ pub struct Aes128Ecb {
 impl Aes128Ecb {
     pub fn from_key(key: &[u8]) -> Result<Self, CipherError> {
         if key.len() != 16 {
-            return Err(CipherError::KeyLengthMismatch(16, key.len()));
+            return Err(CipherError::InvalidKeyLength {
+                expected: AES_BLOCK_SIZE,
+                actual: key.len(),
+            });
         }
         let mut fixed_key = [0u8; 16];
         fixed_key.copy_from_slice(key);
@@ -43,12 +56,34 @@ impl SimpleCipher for Aes128Ecb {
     }
 
     fn decrypt(&self, encrypted_bytes: &[u8]) -> Result<Vec<u8>, CipherError> {
-        let data = encrypted_bytes.to_vec();
-        let mut result = vec![0u8; data.len()];
+        if encrypted_bytes.is_empty() || encrypted_bytes.len() % AES_BLOCK_SIZE != 0 {
+            return Err(CipherError::InvalidCiphertextLength {
+                block_size: AES_BLOCK_SIZE,
+                actual: encrypted_bytes.len(),
+            });
+        }
+
+        let mut result = vec![0u8; encrypted_bytes.len()];
         let mut scheduled_keys: [u32; 44] = [0; 44];
         aes_core::key_schedule_decrypt128(&self.key, &mut scheduled_keys);
-        ecb_dec(&data, &mut result, &scheduled_keys);
-        de_ansix923_pkcs7(&mut result);
+        ecb_dec(encrypted_bytes, &mut result, &scheduled_keys);
+
+        let padding_length = result.last().copied().map_or(0, usize::from);
+        if padding_length == 0 || padding_length > AES_BLOCK_SIZE || padding_length > result.len() {
+            return Err(CipherError::InvalidPadding { padding_length });
+        }
+
+        let content_length = result.len() - padding_length;
+        let padding = result
+            .get(content_length..)
+            .ok_or(CipherError::InvalidPadding { padding_length })?;
+        if !padding
+            .iter()
+            .all(|byte| usize::from(*byte) == padding_length)
+        {
+            return Err(CipherError::InvalidPadding { padding_length });
+        }
+        result.truncate(content_length);
         Ok(result)
     }
 }

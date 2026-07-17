@@ -1,4 +1,19 @@
+use std::string::FromUtf8Error;
+
+use thiserror::Error;
+
 use crate::common::dialer::Dialer;
+
+#[derive(Debug, Error)]
+pub enum Srun3kDialerError {
+    #[error("username byte at index {index} cannot be shifted by four: {byte:#04x}")]
+    ByteShiftOverflow { index: usize, byte: u8 },
+
+    #[error("encoded username is not valid UTF-8")]
+    InvalidUsernameEncoding(#[from] FromUtf8Error),
+}
+
+pub type Srun3kDialerResult<T> = Result<T, Srun3kDialerError>;
 
 #[derive(Debug)]
 pub enum Configuration {
@@ -17,11 +32,17 @@ impl Srun3kDialer {
         }
     }
 
-    pub fn encrypt_account_v20(&self, username: &str) -> String {
-        let encrypted_bytes: Vec<u8> = username.bytes().map(|c| c + 4).collect();
-        let encrypted_username = String::from_utf8(encrypted_bytes)
-            .expect("SRun3k v2.0 usernames must remain valid UTF-8 after encoding");
-        format!("{{SRUN3}}\r\n{}", encrypted_username)
+    pub fn encrypt_account_v20(&self, username: &str) -> Srun3kDialerResult<String> {
+        let encrypted_bytes = username
+            .bytes()
+            .enumerate()
+            .map(|(index, byte)| {
+                byte.checked_add(4)
+                    .ok_or(Srun3kDialerError::ByteShiftOverflow { index, byte })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let encrypted_username = String::from_utf8(encrypted_bytes)?;
+        Ok(format!("{{SRUN3}}\r\n{encrypted_username}"))
     }
 }
 

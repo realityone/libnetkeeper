@@ -1,10 +1,21 @@
-use std::str;
-
 use crate::common::bytes::BytesAbleNum;
 use crate::common::dialer::Dialer;
+use crate::common::error::TimeError;
 use crate::common::hex::ToHex;
-use crate::common::utils::current_timestamp;
+use crate::common::utils::resolve_timestamp;
 use crate::crypto::hash::{HasherBuilder, HasherType};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum NetkeeperDialerError {
+    #[error("failed to resolve the current timestamp")]
+    Time(#[from] TimeError),
+
+    #[error("hash function returned no output")]
+    EmptyHashOutput,
+}
+
+pub type NetkeeperDialerResult<T> = Result<T, NetkeeperDialerError>;
 
 // copy from https://github.com/miao1007/Openwrt-NetKeeper
 #[derive(Debug, Clone, Copy)]
@@ -39,19 +50,21 @@ impl NetkeeperDialer {
 
     pub fn pin27_bytes(source: u32) -> [u8; 6] {
         let mut time_hash: [u8; 4] = [0; 4];
-        let mut result: [u8; 6] = [0; 6];
         for (i, code) in time_hash.iter_mut().enumerate() {
             for j in 0..8 {
-                *code += ((((source >> (i + 4 * j)) & 1) << (7 - j)) & 0xFF) as u8;
+                *code |= ((((source >> (i + 4 * j)) & 1) << (7 - j)) & 0xFF) as u8;
             }
         }
 
-        result[0] = (time_hash[0] >> 2) & 0x3F;
-        result[1] = ((time_hash[0] & 0x03) << 4) | ((time_hash[1] >> 4) & 0x0F);
-        result[2] = ((time_hash[1] & 0x0F) << 2) | ((time_hash[2] >> 6) & 0x03);
-        result[3] = time_hash[2] & 0x3F;
-        result[4] = (time_hash[3] >> 2) & 0x3F;
-        result[5] = (time_hash[3] & 0x03) << 4;
+        let [time0, time1, time2, time3] = time_hash;
+        let mut result = [
+            (time0 >> 2) & 0x3F,
+            ((time0 & 0x03) << 4) | ((time1 >> 4) & 0x0F),
+            ((time1 & 0x0F) << 2) | ((time2 >> 6) & 0x03),
+            time2 & 0x3F,
+            (time3 >> 2) & 0x3F,
+            (time3 & 0x03) << 4,
+        ];
 
         for byte in result.iter_mut().take(6) {
             *byte += 0x20;
@@ -62,25 +75,40 @@ impl NetkeeperDialer {
         result
     }
 
-    pub fn encrypt_account(&self, username: &str, timestamp: Option<u32>) -> String {
+    pub fn encrypt_account(
+        &self,
+        username: &str,
+        timestamp: Option<u32>,
+    ) -> NetkeeperDialerResult<String> {
         let username = username.to_uppercase();
-        let timenow = timestamp.unwrap_or_else(current_timestamp);
+        let timenow = resolve_timestamp(timestamp)?;
         let time_div_by_five: u32 = timenow / 5;
 
         let pin27_bytes: [u8; 6] = Self::pin27_bytes(time_div_by_five);
-        let pin27_str = str::from_utf8(&pin27_bytes).expect("PIN alphabet is valid UTF-8");
+        let pin27_str: String = pin27_bytes.into_iter().map(char::from).collect();
 
         let pin89_str = {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
             md5.update(&time_div_by_five.as_bytes_be());
-            md5.update(username.split('@').nth(0).unwrap().as_bytes());
+            let account_name = username
+                .split_once('@')
+                .map_or(username.as_str(), |(name, _)| name);
+            md5.update(account_name.as_bytes());
             md5.update(self.share_key.as_bytes());
 
             let hashed_bytes = md5.finish();
-            hashed_bytes[0..1].to_hex()
+            hashed_bytes
+                .first()
+                .copied()
+                .ok_or(NetkeeperDialerError::EmptyHashOutput)?
+                .to_be_bytes()
+                .to_hex()
         };
 
-        format!("{}{}{}{}", self.prefix, pin27_str, pin89_str, username)
+        Ok(format!(
+            "{}{}{}{}",
+            self.prefix, pin27_str, pin89_str, username
+        ))
     }
 }
 

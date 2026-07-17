@@ -10,7 +10,9 @@ use std::str::FromStr;
 #[test]
 fn test_singlenet_username_encrypt() {
     let dialer = SingleNetDialer::load_from_config(Configuration::Hainan);
-    let encrypted = dialer.encrypt_account("05802278989@HYXY.XY", Some(1472483020));
+    let encrypted = dialer
+        .encrypt_account("05802278989@HYXY.XY", Some(1472483020))
+        .unwrap();
     assert_eq!(encrypted, "~LL_k6ecvpj2mrjA_05802278989@HYXY.XY");
 }
 
@@ -22,18 +24,20 @@ fn test_keepalive_request_generate_and_parse() {
         Some(1472483020),
         None,
         None,
-    );
+    )
+    .unwrap();
     let ka2 = PacketFactoryWin::keepalive_request(
         "05802278989@HYXY.XY",
         Ipv4Addr::from_str("10.0.0.1").unwrap(),
         Some(1472483020),
         Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"),
         None,
-    );
+    )
+    .unwrap();
 
     let authenticator = PacketAuthenticator::new("LLWLXA_TPSHARESECRET");
-    let ka1_bytes = ka1.as_bytes(Some(&authenticator));
-    let ka2_bytes = ka2.as_bytes(Some(&authenticator));
+    let ka1_bytes = ka1.as_bytes(Some(&authenticator)).unwrap();
+    let ka2_bytes = ka2.as_bytes(Some(&authenticator)).unwrap();
     let real1_bytes: Vec<u8> = vec![
         83, 78, 0, 105, 3, 43, 220, 250, 219, 227, 84, 6, 40, 77, 138, 217, 220, 230, 189, 142,
         123, 179, 2, 0, 7, 10, 0, 0, 1, 3, 0, 12, 49, 46, 50, 46, 50, 50, 46, 51, 54, 20, 0, 35,
@@ -53,7 +57,7 @@ fn test_keepalive_request_generate_and_parse() {
 
     let mut buffer = BufReader::new(&real1_bytes as &[u8]);
     let ka1_p1 = Packet::from_bytes(&mut buffer).unwrap();
-    let ka1_p1_bytes = ka1_p1.as_bytes(None);
+    let ka1_p1_bytes = ka1_p1.as_bytes(None).unwrap();
     assert_eq!(ka1_p1_bytes, real1_bytes);
 }
 
@@ -66,8 +70,9 @@ fn test_register_request() {
         None,
         None,
         None,
-    );
-    let reg_bytes = reg.as_bytes(Some(&authenticator));
+    )
+    .unwrap();
+    let reg_bytes = reg.as_bytes(Some(&authenticator)).unwrap();
     let real_bytes: Vec<u8> = vec![
         83, 78, 0, 197, 1, 1, 111, 131, 14, 200, 48, 216, 23, 80, 223, 56, 164, 152, 147, 120, 164,
         191, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,
@@ -90,8 +95,9 @@ fn test_real_time_bubble_request() {
         Ipv4Addr::from_str("10.8.0.4").unwrap(),
         None,
         None,
-    );
-    let reg_bytes = reg.as_bytes(Some(&authenticator));
+    )
+    .unwrap();
+    let reg_bytes = reg.as_bytes(Some(&authenticator)).unwrap();
     let real_bytes: Vec<u8> = vec![
         83, 78, 0, 96, 11, 1, 166, 14, 39, 63, 156, 69, 236, 221, 210, 50, 156, 211, 85, 237, 232,
         220, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,
@@ -110,8 +116,9 @@ fn test_bubble_request() {
         Ipv4Addr::from_str("10.8.0.4").unwrap(),
         None,
         None,
-    );
-    let reg_bytes = reg.as_bytes(Some(&authenticator));
+    )
+    .unwrap();
+    let reg_bytes = reg.as_bytes(Some(&authenticator)).unwrap();
     let real_bytes: Vec<u8> = vec![
         83, 78, 0, 96, 5, 1, 55, 73, 135, 12, 152, 235, 170, 225, 149, 154, 105, 61, 230, 140, 53,
         242, 1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,

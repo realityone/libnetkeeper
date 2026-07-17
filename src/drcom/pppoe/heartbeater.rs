@@ -8,16 +8,21 @@ use crate::common::bytes::BytesAbleNum;
 use crate::common::reader::{ReadBytesError, ReaderHelper};
 use crate::crypto::hash::{Hasher, HasherBuilder, HasherType};
 use crate::drcom::{DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DrCOMHeartbeatError {
-    ValidateError(DrCOMValidateError),
-    CRCHashError(CRCHashError),
-    PacketReadError(ReadBytesError),
+    #[error("packet validation failed: {0}")]
+    ValidateError(#[source] DrCOMValidateError),
+    #[error("CRC hash failed: {0}")]
+    CRCHashError(#[source] CRCHashError),
+    #[error("failed to read packet: {0}")]
+    PacketReadError(#[source] ReadBytesError),
+    #[error("unexpected packet bytes: {0:02x?}")]
     UnexpectedBytes(Vec<u8>),
 }
 
-type PacketResult<T> = result::Result<T, DrCOMHeartbeatError>;
+pub type PacketResult<T> = result::Result<T, DrCOMHeartbeatError>;
 
 #[derive(Debug)]
 pub enum HeartbeatFlag {
@@ -46,10 +51,14 @@ pub enum CRCHasherType {
     SHA1,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CRCHashError {
+    #[error("CRC mode does not exist")]
     ModeNotExist,
+    #[error("CRC input length must be a multiple of 4 bytes")]
     InputLengthInvalid,
+    #[error("hash output is too short for requested positions")]
+    OutputTooShort,
 }
 
 struct NoneHasher;
@@ -94,7 +103,7 @@ trait CRCHasher {
     fn hasher(&self) -> Box<dyn Hasher>;
     fn retain_postions(&self) -> [usize; 8];
 
-    fn hash(&self, bytes: &[u8]) -> [u8; 8] {
+    fn try_hash(&self, bytes: &[u8]) -> Result<[u8; 8], CRCHashError> {
         let mut hasher = self.hasher();
         let retain_postions = self.retain_postions();
 
@@ -103,15 +112,19 @@ trait CRCHasher {
 
         let mut hashed = Vec::<u8>::with_capacity(retain_postions.len());
         for i in &retain_postions {
-            if *i > hashed_bytes.len() {
-                continue;
-            }
-            hashed.push(hashed_bytes[*i]);
+            let byte = hashed_bytes.get(*i).ok_or(CRCHashError::OutputTooShort)?;
+            hashed.push(*byte);
         }
 
         let mut result = [0u8; 8];
-        result.clone_from_slice(hashed.as_slice());
-        result
+        result.copy_from_slice(&hashed);
+        Ok(result)
+    }
+
+    /// Compute the protocol hash. Inputs used by this module are always valid;
+    /// callers handling untrusted data should use [`CRCHasher::try_hash`].
+    fn hash(&self, bytes: &[u8]) -> [u8; 8] {
+        self.try_hash(bytes).unwrap_or([0u8; 8])
     }
 }
 
@@ -205,7 +218,7 @@ impl ChallengeRequest {
 
         result[0] = Self::code();
         result[1] = self.sequence;
-        Self::magic_number().write_bytes_le(&mut result[2..6]);
+        let _ = Self::magic_number().write_bytes_le(&mut result[2..6]);
 
         result
     }
@@ -336,7 +349,10 @@ impl<'a> HeartbeatRequest<'a> {
 
         let mut footer_bytes = Vec::with_capacity(Self::footer_length());
         {
-            let hash_mode = CRCHasherType::from_mode((self.challenge_seed % 3) as u8).unwrap();
+            let hash_mode = match CRCHasherType::from_mode((self.challenge_seed % 3) as u8) {
+                Ok(mode) => mode,
+                Err(_) => CRCHasherType::NONE,
+            };
             let crc_hash_bytes = hash_mode.hash(&challenge_seed_bytes);
             footer_bytes.extend_from_slice(&crc_hash_bytes);
 
@@ -345,11 +361,11 @@ impl<'a> HeartbeatRequest<'a> {
                 rehash_bytes.extend(&header_bytes);
                 rehash_bytes.extend(&content_bytes);
                 rehash_bytes.extend(&footer_bytes);
-                let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap())
+                let rehash = Wrapping(calculate_drcom_crc32(&rehash_bytes, None).unwrap_or(0))
                     * Wrapping(19_680_126);
 
-                rehash.0.write_bytes_le(&mut footer_bytes[0..4]);
-                0u32.write_bytes_le(&mut footer_bytes[4..8]);
+                let _ = rehash.0.write_bytes_le(&mut footer_bytes[0..4]);
+                let _ = 0u32.write_bytes_le(&mut footer_bytes[4..8]);
             }
             // padding?
             footer_bytes.extend_from_slice(&[0u8; 16 * 4]);
@@ -424,7 +440,10 @@ impl<'a> KeepAliveRequest<'a> {
         let footer_bytes = match self.type_id {
             3 => {
                 let mut result = Vec::with_capacity(Self::footer_length());
-                let hash_mode = CRCHasherType::from_mode((self.keep_alive_seed & 3) as u8).unwrap();
+                let hash_mode = match CRCHasherType::from_mode((self.keep_alive_seed & 3) as u8) {
+                    Ok(mode) => mode,
+                    Err(_) => CRCHasherType::NONE,
+                };
                 let crc_hash_bytes = hash_mode.hash(&packet_bytes);
                 result.extend_from_slice(&crc_hash_bytes);
 
@@ -454,12 +473,12 @@ impl KeepAliveResponse {
             .read_bytes(1)
             .map_err(DrCOMHeartbeatError::PacketReadError)?;
 
-        let type_flag_byte;
-        {
-            type_flag_byte = input
-                .read_bytes(1)
-                .map_err(DrCOMHeartbeatError::PacketReadError)?[0];
-        }
+        let type_flag_byte = input
+            .read_bytes(1)
+            .map_err(DrCOMHeartbeatError::PacketReadError)?
+            .first()
+            .copied()
+            .ok_or_else(|| DrCOMHeartbeatError::UnexpectedBytes(Vec::new()))?;
 
         let response_type = match type_flag_byte {
             0x28 => KeepAliveResponseType::KeepAliveSucceed,

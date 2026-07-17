@@ -1,6 +1,7 @@
 // copy from https://github.com/drcoms/drcom-generic
-use std::fmt::Debug;
-use std::io;
+use std::{fmt::Debug, io};
+
+use thiserror::Error;
 
 use crate::common::reader::{ReadBytesError, ReaderHelper};
 
@@ -18,10 +19,13 @@ pub trait DrCOMFlag: Debug {
     fn as_u32(&self) -> u32;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DrCOMValidateError {
-    CodeMismatch(u8),
-    PacketReadError(ReadBytesError),
+    #[error("unexpected packet code {actual:#04x}")]
+    CodeMismatch { actual: u8 },
+
+    #[error("failed to read packet code")]
+    Read(#[from] ReadBytesError),
 }
 
 pub trait DrCOMCommon {
@@ -39,12 +43,9 @@ pub trait DrCOMResponseCommon {
         R: io::Read,
         V: FnOnce(u8) -> bool,
     {
-        let code_bytes = input
-            .read_bytes(1)
-            .map_err(DrCOMValidateError::PacketReadError)?;
-        let code = code_bytes[0];
+        let code = input.read_byte()?;
         if !validator(code) {
-            return Err(DrCOMValidateError::CodeMismatch(code));
+            return Err(DrCOMValidateError::CodeMismatch { actual: code });
         }
         Ok(())
     }

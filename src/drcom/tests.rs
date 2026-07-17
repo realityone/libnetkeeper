@@ -164,7 +164,7 @@ mod wired_tests {
 
     #[test]
     fn test_drcom_wired_challenge() {
-        let c = ChallengeRequest::new(Some(1));
+        let c = ChallengeRequest::new(Some(1)).unwrap();
         assert_eq!(
             c.as_bytes(),
             vec![1, 2, 1, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -318,9 +318,10 @@ mod wired_tests {
         let flag_first = HeartbeatFlag::First;
         let flag_not_first = HeartbeatFlag::NotFirst;
 
-        let phase1 = PhaseOneRequest::new([1, 2, 3, 4], "password", [5, 6, 7, 8], Some(123456789));
+        let phase1 =
+            PhaseOneRequest::new([1, 2, 3, 4], "password", [5, 6, 7, 8], Some(123456789)).unwrap();
         assert_eq!(
-            phase1.as_bytes(),
+            phase1.as_bytes().unwrap(),
             vec![
                 255, 174, 175, 144, 214, 168, 238, 67, 106, 128, 153, 49, 172, 94, 102, 177, 222,
                 0, 0, 0, 5, 6, 7, 8, 212, 112, 0, 0, 0, 0,

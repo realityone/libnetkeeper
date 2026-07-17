@@ -1,24 +1,35 @@
+use std::io;
 use std::net::Ipv4Addr;
-use std::{io, result};
 
-use byteorder::{ByteOrder, NativeEndian};
+use thiserror::Error;
 
-use crate::common::bytes::BytesAbleNum;
+use crate::common::error::TimeError;
 use crate::common::reader::{ReadBytesError, ReaderHelper};
-use crate::common::utils::current_timestamp;
+use crate::common::utils::resolve_timestamp;
 use crate::crypto::hash::{HasherBuilder, HasherType};
 use crate::drcom::{
     DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum HeartbeatError {
-    ValidateError(DrCOMValidateError),
-    ResponseLengthMismatch(u16, u16),
-    PacketReadError(ReadBytesError),
+    #[error("packet validation failed")]
+    Validate(#[from] DrCOMValidateError),
+
+    #[error("response length mismatch: expected {expected} bytes, got {actual}")]
+    ResponseLengthMismatch { expected: u16, actual: u16 },
+
+    #[error("failed to read heartbeat packet")]
+    Read(#[from] ReadBytesError),
+
+    #[error("password hash has an unexpected length: expected {expected} bytes, got {actual}")]
+    InvalidHashLength { expected: usize, actual: usize },
+
+    #[error("failed to resolve the current timestamp")]
+    Time(#[from] TimeError),
 }
 
-type HeartbeatResult<T> = result::Result<T, HeartbeatError>;
+pub type HeartbeatResult<T> = Result<T, HeartbeatError>;
 
 #[derive(Debug)]
 pub struct PhaseOneRequest {
@@ -53,7 +64,7 @@ pub enum HeartbeatFlag {
 
 impl DrCOMCommon for PhaseOneRequest {
     fn code() -> u8 {
-        0xffu8
+        0xff
     }
 }
 
@@ -63,48 +74,44 @@ impl PhaseOneRequest {
         password: &str,
         keep_alive_key: [u8; 4],
         timestamp: Option<u32>,
-    ) -> Self {
-        PhaseOneRequest {
-            timestamp: timestamp.unwrap_or_else(current_timestamp),
+    ) -> HeartbeatResult<Self> {
+        Ok(Self {
+            timestamp: resolve_timestamp(timestamp)?,
             hash_salt,
-            password: password.to_string(),
+            password: password.to_owned(),
             keep_alive_key,
-        }
+        })
     }
 
-    fn packet_length() -> usize {
-        // code + password hash + padding? + key bytes + timestamp hash + padding?
-        1 + 16 + 3 + 4 + 2 + 4
-    }
-
-    fn password_hash(&self) -> [u8; 16] {
+    fn password_hash(&self) -> HeartbeatResult<[u8; 16]> {
         let mut md5 = HasherBuilder::build(HasherType::MD5);
-        md5.update(&PACKET_MAGIC_NUMBER.as_bytes_le());
+        md5.update(&PACKET_MAGIC_NUMBER.to_le_bytes());
         md5.update(&self.hash_salt);
         md5.update(self.password.as_bytes());
-
-        let mut md5_digest = [0u8; 16];
-        md5_digest.copy_from_slice(&md5.finish());
-        md5_digest
+        let hash = md5.finish();
+        let hash_length = hash.len();
+        hash.try_into()
+            .map_err(|_| HeartbeatError::InvalidHashLength {
+                expected: 16,
+                actual: hash_length,
+            })
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(Self::packet_length());
+    pub fn as_bytes(&self) -> HeartbeatResult<Vec<u8>> {
+        let mut result = Vec::with_capacity(30);
         result.push(Self::code());
-        result.extend_from_slice(&self.password_hash());
-        // padding?
-        result.extend_from_slice(&[0u8; 3]);
+        result.extend_from_slice(&self.password_hash()?);
+        result.extend_from_slice(&[0; 3]);
         result.extend_from_slice(&self.keep_alive_key);
-        result.extend(((self.timestamp % 0xFFFF) as u16).as_bytes_be());
-        // padding?
-        result.extend_from_slice(&[0u8; 4]);
-        result
+        result.extend_from_slice(&((self.timestamp % 0xffff) as u16).to_be_bytes());
+        result.extend_from_slice(&[0; 4]);
+        Ok(result)
     }
 }
 
 impl DrCOMCommon for PhaseOneResponse {
     fn code() -> u8 {
-        0x07u8
+        0x07
     }
 }
 
@@ -115,25 +122,23 @@ impl PhaseOneResponse {
     where
         R: io::Read,
     {
-        // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code())
-            .map_err(HeartbeatError::ValidateError)?;
-        Ok(PhaseOneResponse {})
+        Self::validate_stream(input, |code| code == Self::code())?;
+        Ok(Self)
     }
 }
 
 impl DrCOMFlag for HeartbeatFlag {
     fn as_u32(&self) -> u32 {
-        match *self {
-            HeartbeatFlag::First => 0x122f_270f,
-            HeartbeatFlag::NotFirst => 0x122f_02dc,
+        match self {
+            Self::First => 0x122f_270f,
+            Self::NotFirst => 0x122f_02dc,
         }
     }
 }
 
-impl<'a> DrCOMCommon for PhaseTwoRequest<'a> {
+impl DrCOMCommon for PhaseTwoRequest<'_> {
     fn code() -> u8 {
-        0x7u8
+        0x07
     }
 }
 
@@ -148,7 +153,7 @@ impl<'a> PhaseTwoRequest<'a> {
     where
         F: DrCOMFlag,
     {
-        PhaseTwoRequest {
+        Self {
             sequence,
             keep_alive_key,
             flag,
@@ -157,48 +162,36 @@ impl<'a> PhaseTwoRequest<'a> {
         }
     }
 
-    #[inline]
-    fn packet_length() -> usize {
-        // code + sequence + content length + uid length + keep alive key + padding?
+    const fn packet_length() -> u16 {
         1 + 1 + 2 + 1 + Self::uid_length() + 4 + 4 + Self::footer_length()
     }
 
-    #[inline]
-    fn footer_length() -> usize {
-        // crc + source ip + padding?
+    const fn footer_length() -> u16 {
         4 + 4 + 8
     }
 
-    #[inline]
-    fn uid_length() -> usize {
-        // type id + keep alive flag + padding?
+    const fn uid_length() -> u16 {
         1 + 4 + 6
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(Self::packet_length());
+        let mut result = Vec::with_capacity(usize::from(Self::packet_length()));
         result.push(Self::code());
         result.push(self.sequence);
-        result.extend((Self::packet_length() as u16).as_bytes_le());
-
+        result.extend_from_slice(&Self::packet_length().to_le_bytes());
         result.push(Self::uid_length() as u8);
         result.push(self.type_id);
-        result.extend(self.flag.as_u32().as_bytes_le());
-        // padding?
-        result.extend_from_slice(&[0u8; 6]);
+        result.extend_from_slice(&self.flag.as_u32().to_le_bytes());
+        result.extend_from_slice(&[0; 6]);
         result.extend_from_slice(&self.keep_alive_key);
-        // padding?
-        result.extend_from_slice(&[0u8; 4]);
-
-        let footer_bytes = match self.type_id {
-            3 => {
-                let mut footer = vec![0u8; Self::footer_length()];
-                footer[4..8].copy_from_slice(&self.host_ip.octets());
-                footer
-            }
-            _ => vec![0u8; Self::footer_length()],
-        };
-        result.extend(footer_bytes);
+        result.extend_from_slice(&[0; 4]);
+        result.extend_from_slice(&[0; 4]);
+        if self.type_id == 3 {
+            result.extend_from_slice(&self.host_ip.octets());
+        } else {
+            result.extend_from_slice(&[0; 4]);
+        }
+        result.extend_from_slice(&[0; 8]);
         result
     }
 }
@@ -212,42 +205,20 @@ impl PhaseTwoResponse {
     where
         R: io::Read,
     {
-        const PHASE_TWO_RESPONSE_LENGTH: u16 = 0x28;
+        const EXPECTED_LENGTH: u16 = 0x28;
 
-        // validate packet and consume 1 byte
-        Self::validate_stream(input, |c| c == Self::code())
-            .map_err(HeartbeatError::ValidateError)?;
-
-        let sequence = input
-            .read_bytes(1)
-            .map_err(HeartbeatError::PacketReadError)?[0];
-
-        // validate length bytes
-        {
-            let length_bytes = input
-                .read_bytes(2)
-                .map_err(HeartbeatError::PacketReadError)?;
-            let length = NativeEndian::read_u16(&length_bytes);
-            if length != PHASE_TWO_RESPONSE_LENGTH {
-                return Err(HeartbeatError::ResponseLengthMismatch(
-                    length,
-                    PHASE_TWO_RESPONSE_LENGTH,
-                ));
-            }
+        Self::validate_stream(input, |code| code == Self::code())?;
+        let sequence = input.read_byte()?;
+        let length = u16::from_le_bytes(input.read_exact_array()?);
+        if length != EXPECTED_LENGTH {
+            return Err(HeartbeatError::ResponseLengthMismatch {
+                expected: EXPECTED_LENGTH,
+                actual: length,
+            });
         }
-
-        // drain unknow bytes
-        input
-            .read_bytes(12)
-            .map_err(HeartbeatError::PacketReadError)?;
-
-        let mut keep_alive_key = [0u8; 4];
-        keep_alive_key.copy_from_slice(
-            &input
-                .read_bytes(4)
-                .map_err(HeartbeatError::PacketReadError)?,
-        );
-        Ok(PhaseTwoResponse {
+        input.read_bytes(12)?;
+        let keep_alive_key = input.read_exact_array()?;
+        Ok(Self {
             sequence,
             keep_alive_key,
         })

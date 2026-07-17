@@ -2,12 +2,22 @@ use std::net::Ipv4Addr;
 
 use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
+use crate::common::error::BufferError;
+
 pub trait BytesAble {
     fn as_bytes(&self) -> Vec<u8>;
 
     #[inline]
-    fn write_bytes(&self, dst: &mut [u8]) {
-        dst.copy_from_slice(&self.as_bytes());
+    fn write_bytes(&self, dst: &mut [u8]) -> Result<(), BufferError> {
+        let bytes = self.as_bytes();
+        if dst.len() != bytes.len() {
+            return Err(BufferError::LengthMismatch {
+                expected: bytes.len(),
+                actual: dst.len(),
+            });
+        }
+        dst.copy_from_slice(&bytes);
+        Ok(())
     }
 }
 
@@ -16,13 +26,29 @@ pub trait BytesAbleNum {
     fn as_bytes_le(&self) -> Vec<u8>;
 
     #[inline]
-    fn write_bytes_be(&self, dst: &mut [u8]) {
-        dst.copy_from_slice(&self.as_bytes_be());
+    fn write_bytes_be(&self, dst: &mut [u8]) -> Result<(), BufferError> {
+        let bytes = self.as_bytes_be();
+        if dst.len() != bytes.len() {
+            return Err(BufferError::LengthMismatch {
+                expected: bytes.len(),
+                actual: dst.len(),
+            });
+        }
+        dst.copy_from_slice(&bytes);
+        Ok(())
     }
 
     #[inline]
-    fn write_bytes_le(&self, dst: &mut [u8]) {
-        dst.copy_from_slice(&self.as_bytes_le());
+    fn write_bytes_le(&self, dst: &mut [u8]) -> Result<(), BufferError> {
+        let bytes = self.as_bytes_le();
+        if dst.len() != bytes.len() {
+            return Err(BufferError::LengthMismatch {
+                expected: bytes.len(),
+                actual: dst.len(),
+            });
+        }
+        dst.copy_from_slice(&bytes);
+        Ok(())
     }
 }
 

@@ -1,20 +1,29 @@
 use std::net::Ipv4Addr;
-use std::{result, str};
 
-use byteorder::{ByteOrder, NetworkEndian};
+use thiserror::Error;
 
-use crate::common::bytes::{BytesAble, BytesAbleNum};
+use crate::common::bytes::BytesAble;
+use crate::common::error::TimeError;
 use crate::common::hex::ToHex;
-use crate::common::utils::current_timestamp;
+use crate::common::utils::resolve_timestamp;
 use crate::crypto::hash::{HasherBuilder, HasherType};
 
-#[derive(Debug)]
+#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
 pub enum ParseAttributesError {
-    // Expect length {}, got {}
-    UnexpectDataLength(usize, usize),
+    #[error("attribute data is truncated: need at least {expected} bytes, got {actual}")]
+    UnexpectedDataLength { expected: usize, actual: usize },
+
+    #[error("invalid attribute length {actual}: minimum is {minimum}")]
+    InvalidAttributeLength { minimum: usize, actual: usize },
+
+    #[error("attribute is too long: maximum {max} bytes, got {actual}")]
+    AttributeTooLong { max: usize, actual: usize },
+
+    #[error("attribute collection is too long: maximum {max} bytes, got {actual}")]
+    CollectionTooLong { max: usize, actual: usize },
 }
 
-type AttributeResult<T> = result::Result<T, ParseAttributesError>;
+pub type AttributeResult<T> = Result<T, ParseAttributesError>;
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeValueType {
@@ -91,8 +100,8 @@ pub struct KeepaliveDataCalculator;
 pub trait AttributeValue: BytesAble {}
 
 pub trait AttributeVec {
-    fn as_bytes(&self) -> Vec<u8>;
-    fn length(&self) -> u16;
+    fn as_bytes(&self) -> AttributeResult<Vec<u8>>;
+    fn length(&self) -> AttributeResult<u16>;
 
     fn from_bytes(bytes: &[u8]) -> AttributeResult<Vec<Attribute>>;
 }
@@ -151,41 +160,46 @@ impl Attribute {
         3u16
     }
 
-    pub fn length(&self) -> u16 {
-        self.data_length() + Self::header_length()
+    pub fn length(&self) -> AttributeResult<u16> {
+        let length = self
+            .data
+            .len()
+            .checked_add(usize::from(Self::header_length()))
+            .ok_or(ParseAttributesError::AttributeTooLong {
+                max: usize::from(u16::MAX),
+                actual: usize::MAX,
+            })?;
+        u16::try_from(length).map_err(|_| ParseAttributesError::AttributeTooLong {
+            max: usize::from(u16::MAX),
+            actual: length,
+        })
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
-        let mut attribute_bytes = Vec::new();
-        {
-            let raw_attribute_id = self.attribute_id;
-            attribute_bytes.push(raw_attribute_id);
-            attribute_bytes.extend(self.length().as_bytes_be());
-            attribute_bytes.extend_from_slice(&self.data);
-        }
-        attribute_bytes
-    }
-
-    fn data_length(&self) -> u16 {
-        self.data.len() as u16
+    pub fn as_bytes(&self) -> AttributeResult<Vec<u8>> {
+        let length = self.length()?;
+        let mut attribute_bytes = Vec::with_capacity(usize::from(length));
+        attribute_bytes.push(self.attribute_id);
+        attribute_bytes.extend_from_slice(&length.to_be_bytes());
+        attribute_bytes.extend_from_slice(&self.data);
+        Ok(attribute_bytes)
     }
 }
 
 impl KeepaliveDataCalculator {
-    pub fn calculate(timestamp: Option<u32>, last_data: Option<&str>) -> String {
-        let timenow = timestamp.unwrap_or_else(current_timestamp);
+    pub fn calculate(timestamp: Option<u32>, last_data: Option<&str>) -> Result<String, TimeError> {
+        let timenow = resolve_timestamp(timestamp)?;
         let salt = last_data.unwrap_or("llwl");
 
         let keepalive_data;
         {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
-            md5.update(&timenow.as_bytes_be());
+            md5.update(&timenow.to_be_bytes());
             md5.update(salt.as_bytes());
 
             let hashed_bytes = md5.finish();
             keepalive_data = hashed_bytes[..].to_hex();
         }
-        keepalive_data
+        Ok(keepalive_data)
     }
 }
 
@@ -349,52 +363,66 @@ impl AttributeType {
 }
 
 impl AttributeVec for Vec<Attribute> {
-    fn as_bytes(&self) -> Vec<u8> {
-        let mut attributes_bytes: Vec<u8> = Vec::new();
+    fn as_bytes(&self) -> AttributeResult<Vec<u8>> {
+        let mut attributes_bytes = Vec::with_capacity(usize::from(self.length()?));
         for attr in self {
-            attributes_bytes.extend(attr.as_bytes());
+            attributes_bytes.extend(attr.as_bytes()?);
         }
-        attributes_bytes
+        Ok(attributes_bytes)
     }
 
-    fn length(&self) -> u16 {
-        self.iter().fold(0, |sum, attr| sum + attr.length())
+    fn length(&self) -> AttributeResult<u16> {
+        let mut length = 0usize;
+        for attribute in self {
+            length = length.checked_add(usize::from(attribute.length()?)).ok_or(
+                ParseAttributesError::CollectionTooLong {
+                    max: usize::from(u16::MAX),
+                    actual: usize::MAX,
+                },
+            )?;
+        }
+        u16::try_from(length).map_err(|_| ParseAttributesError::CollectionTooLong {
+            max: usize::from(u16::MAX),
+            actual: length,
+        })
     }
 
     /// Now only support parse from `AttributeType::TAttribute`'s attributes,
     /// `parent_id` and `value_type_id` will be missed.
     fn from_bytes(bytes: &[u8]) -> AttributeResult<Vec<Attribute>> {
-        let mut index = 0;
-        let mut attributes: Vec<Attribute> = Vec::new();
+        let mut remaining = bytes;
+        let mut attributes = Vec::new();
         let header_length = Attribute::header_length() as usize;
-        loop {
-            let cursor = &bytes[index..];
-            let bytes_length = cursor.len();
-            if bytes_length == 0 {
-                return Ok(attributes);
+        while !remaining.is_empty() {
+            let [attribute_id, length_high, length_low, ..] = remaining else {
+                return Err(ParseAttributesError::UnexpectedDataLength {
+                    expected: header_length,
+                    actual: remaining.len(),
+                });
+            };
+            let attribute_length = usize::from(u16::from_be_bytes([*length_high, *length_low]));
+            if attribute_length < header_length {
+                return Err(ParseAttributesError::InvalidAttributeLength {
+                    minimum: header_length,
+                    actual: attribute_length,
+                });
             }
-            if bytes_length < header_length {
-                return Err(ParseAttributesError::UnexpectDataLength(
-                    header_length,
-                    bytes_length,
-                ));
-            }
-            let attribute_id = cursor[0];
-
-            let data_length = NetworkEndian::read_u16(&cursor[1..header_length]) as usize;
-            index += data_length;
-
-            if data_length > bytes_length {
-                return Err(ParseAttributesError::UnexpectDataLength(
-                    data_length,
-                    bytes_length,
-                ));
-            }
-
-            let mut data: Vec<u8> = Vec::new();
-            data.extend_from_slice(&cursor[header_length..data_length]);
-            attributes.push(Attribute::new("", 0u8, attribute_id, 0u8, data))
+            let data = remaining
+                .get(header_length..attribute_length)
+                .ok_or(ParseAttributesError::UnexpectedDataLength {
+                    expected: attribute_length,
+                    actual: remaining.len(),
+                })?
+                .to_vec();
+            attributes.push(Attribute::new("", 0, *attribute_id, 0, data));
+            remaining = remaining.get(attribute_length..).ok_or(
+                ParseAttributesError::UnexpectedDataLength {
+                    expected: attribute_length,
+                    actual: remaining.len(),
+                },
+            )?;
         }
+        Ok(attributes)
     }
 }
 
@@ -410,7 +438,7 @@ fn test_attribute_gen_bytes() {
     let assert_data: &[u8] = &[
         1, 0, 22, 48, 53, 56, 48, 50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,
     ];
-    assert_eq!(&un.as_bytes()[..], assert_data);
+    assert_eq!(un.as_bytes().unwrap(), assert_data);
 }
 
 #[test]
@@ -422,16 +450,23 @@ fn test_attributes_parse_bytes() {
         50, 50, 55, 56, 57, 56, 57, 64, 72, 89, 88, 89, 46, 88, 89,
     ];
     let attributes: Vec<Attribute> = Vec::<Attribute>::from_bytes(assert_data).unwrap();
-    assert_eq!(attributes.as_bytes(), assert_data);
+    assert_eq!(attributes.as_bytes().unwrap(), assert_data);
+
+    let malformed = [1, 0, 2];
+    assert!(matches!(
+        Vec::<Attribute>::from_bytes(&malformed),
+        Err(ParseAttributesError::InvalidAttributeLength { .. })
+    ));
 }
 
 #[test]
 fn test_keepalive_data() {
-    let kp_data1 = KeepaliveDataCalculator::calculate(Some(1472483020), None);
+    let kp_data1 = KeepaliveDataCalculator::calculate(Some(1472483020), None).unwrap();
     let kp_data2 = KeepaliveDataCalculator::calculate(
         Some(1472483020),
         Some("ffb0b2af94693fd1ba4c93e6b9aebd3f"),
-    );
+    )
+    .unwrap();
     assert_eq!(kp_data1, "ffb0b2af94693fd1ba4c93e6b9aebd3f");
     assert_eq!(kp_data2, "d0dce2b013c8adfac646a2917fdab802");
 }
