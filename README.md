@@ -26,7 +26,7 @@ The default feature set enables all supported algorithms:
 ## Develop
 
 Install Rust with [rustup](https://rustup.rs/). The checked-in `rust-toolchain.toml` selects the
-stable channel and installs `rustfmt` and Clippy. The crate uses Rust 2024 and declares Rust 1.85
+nightly channel and installs `rustfmt` and Clippy. The crate uses Rust 2024 and declares Rust 1.85
 as its minimum supported compiler version.
 
 ### Quality checks
