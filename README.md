@@ -1,6 +1,6 @@
 # libnetkeeper
 
-[![Build Status](https://travis-ci.org/realityone/libnetkeeper.svg?branch=master)](https://travis-ci.org/realityone/libnetkeeper)
+[![Build Status](https://travis-ci.com/realityone/libnetkeeper.svg?branch=master)](https://travis-ci.com/realityone/libnetkeeper)
 
 Rust implementations of network authentication algorithms used by several campus and ISP clients.
 
@@ -26,7 +26,7 @@ The default feature set enables all supported algorithms:
 ## Develop
 
 Install Rust with [rustup](https://rustup.rs/). The checked-in `rust-toolchain.toml` selects the
-nightly channel and installs `rustfmt` and Clippy. The crate uses Rust 2024 and declares Rust 1.85
+stable channel and installs `rustfmt` and Clippy. The crate uses Rust 2024 and declares Rust 1.85
 as its minimum supported compiler version.
 
 ### Quality checks
