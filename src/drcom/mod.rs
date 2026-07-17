@@ -2,7 +2,7 @@
 use std::fmt::Debug;
 use std::io;
 
-use common::reader::{ReadBytesError, ReaderHelper};
+use crate::common::reader::{ReadBytesError, ReaderHelper};
 
 pub mod pppoe;
 pub mod wired;

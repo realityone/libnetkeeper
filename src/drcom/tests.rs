@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod pppoe_tests {
-    use drcom::pppoe::heartbeater::{
+    use crate::drcom::pppoe::heartbeater::{
         ChallengeRequest, ChallengeResponse, HeartbeatFlag, HeartbeatRequest, KeepAliveRequest,
         KeepAliveRequestFlag, KeepAliveResponse, KeepAliveResponseType,
     };
@@ -152,8 +152,10 @@ mod pppoe_tests {
 
 #[cfg(test)]
 mod wired_tests {
-    use drcom::wired::dialer::{ChallengeRequest, ChallengeResponse, LoginAccount, LoginResponse};
-    use drcom::wired::heartbeater::{
+    use crate::drcom::wired::dialer::{
+        ChallengeRequest, ChallengeResponse, LoginAccount, LoginResponse,
+    };
+    use crate::drcom::wired::heartbeater::{
         HeartbeatFlag, PhaseOneRequest, PhaseOneResponse, PhaseTwoRequest, PhaseTwoResponse,
     };
     use std::io::BufReader;

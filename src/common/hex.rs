@@ -2,7 +2,7 @@ pub trait ToHex {
     fn to_hex(&self) -> String;
 }
 
-static CHARS: &'static [u8] = b"0123456789abcdef";
+static CHARS: &[u8] = b"0123456789abcdef";
 
 impl ToHex for [u8] {
     fn to_hex(&self) -> String {
@@ -12,6 +12,6 @@ impl ToHex for [u8] {
             v.push(CHARS[(byte & 0xf) as usize]);
         }
 
-        unsafe { String::from_utf8_unchecked(v) }
+        String::from_utf8(v).expect("hex digits are valid UTF-8")
     }
 }

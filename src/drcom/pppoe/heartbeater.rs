@@ -4,10 +4,10 @@ use std::{io, marker, result};
 
 use byteorder::{ByteOrder, NativeEndian, NetworkEndian};
 
-use common::bytes::BytesAbleNum;
-use common::reader::{ReadBytesError, ReaderHelper};
-use crypto::hash::{Hasher, HasherBuilder, HasherType};
-use drcom::{DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError};
+use crate::common::bytes::BytesAbleNum;
+use crate::common::reader::{ReadBytesError, ReaderHelper};
+use crate::crypto::hash::{Hasher, HasherBuilder, HasherType};
+use crate::drcom::{DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError};
 
 #[derive(Debug)]
 pub enum DrCOMHeartbeatError {
@@ -62,26 +62,26 @@ pub struct ChallengeRequest {
 #[derive(Debug)]
 pub struct ChallengeResponse {
     pub challenge_seed: u32,
-    pub source_ip:      Ipv4Addr,
+    pub source_ip: Ipv4Addr,
 }
 
 #[derive(Debug)]
 pub struct HeartbeatRequest<'a> {
-    sequence:       u8,
-    type_id:        u8,
-    uid_length:     u8,
-    mac_address:    [u8; 6],
-    source_ip:      Ipv4Addr,
-    flag:           &'a (dyn DrCOMFlag + 'a),
+    sequence: u8,
+    type_id: u8,
+    uid_length: u8,
+    mac_address: [u8; 6],
+    source_ip: Ipv4Addr,
+    flag: &'a (dyn DrCOMFlag + 'a),
     challenge_seed: u32,
 }
 
 #[derive(Debug)]
 pub struct KeepAliveRequest<'a> {
-    sequence:        u8,
-    type_id:         u8,
-    source_ip:       Ipv4Addr,
-    flag:            &'a (dyn DrCOMFlag + 'a),
+    sequence: u8,
+    type_id: u8,
+    source_ip: Ipv4Addr,
+    flag: &'a (dyn DrCOMFlag + 'a),
     keep_alive_seed: u32,
 }
 

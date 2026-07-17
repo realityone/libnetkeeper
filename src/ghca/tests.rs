@@ -1,5 +1,5 @@
-use common::dialer::Dialer;
-use ghca::dialer::{Configuration, GhcaDialer};
+use crate::common::dialer::Dialer;
+use crate::ghca::dialer::{Configuration, GhcaDialer};
 
 #[test]
 fn test_ghca_username_encrypt() {

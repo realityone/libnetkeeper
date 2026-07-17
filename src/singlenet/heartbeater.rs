@@ -1,13 +1,13 @@
 use std::net::Ipv4Addr;
 use std::{io, result};
 
+use crate::crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{ByteOrder, NetworkEndian};
-use crypto::hash::{HasherBuilder, HasherType};
 
-use common::bytes::BytesAbleNum;
-use common::reader::{ReadBytesError, ReaderHelper};
-use common::utils::current_timestamp;
-use singlenet::attributes::{
+use crate::common::bytes::BytesAbleNum;
+use crate::common::reader::{ReadBytesError, ReaderHelper};
+use crate::common::utils::current_timestamp;
+use crate::singlenet::attributes::{
     Attribute, AttributeType, AttributeVec, KeepaliveDataCalculator, ParseAttributesError,
 };
 
@@ -38,12 +38,12 @@ pub enum PacketCode {
 
 #[derive(Debug)]
 pub struct Packet {
-    magic_number:  u16,
-    length:        u16,
-    code:          PacketCode,
-    seq:           u8,
+    magic_number: u16,
+    length: u16,
+    code: PacketCode,
+    seq: u8,
     authorization: [u8; 16],
-    attributes:    Vec<Attribute>,
+    attributes: Vec<Attribute>,
 }
 
 pub struct PacketAuthenticator {

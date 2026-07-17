@@ -1,6 +1,8 @@
-use common::dialer::Dialer;
-use singlenet::dialer::{Configuration, SingleNetDialer};
-use singlenet::heartbeater::{Packet, PacketAuthenticator, PacketFactoryMac, PacketFactoryWin};
+use crate::common::dialer::Dialer;
+use crate::singlenet::dialer::{Configuration, SingleNetDialer};
+use crate::singlenet::heartbeater::{
+    Packet, PacketAuthenticator, PacketFactoryMac, PacketFactoryWin,
+};
 use std::io::BufReader;
 use std::net::Ipv4Addr;
 use std::str::FromStr;

@@ -3,10 +3,10 @@ use std::{result, str};
 
 use byteorder::{ByteOrder, NetworkEndian};
 
-use common::bytes::{BytesAble, BytesAbleNum};
-use common::hex::ToHex;
-use common::utils::current_timestamp;
-use crypto::hash::{HasherBuilder, HasherType};
+use crate::common::bytes::{BytesAble, BytesAbleNum};
+use crate::common::hex::ToHex;
+use crate::common::utils::current_timestamp;
+use crate::crypto::hash::{HasherBuilder, HasherType};
 
 #[derive(Debug)]
 pub enum ParseAttributesError {
@@ -79,11 +79,11 @@ pub enum AttributeType {
 
 #[derive(Debug)]
 pub struct Attribute {
-    name:          String,
-    parent_id:     u8,
-    attribute_id:  u8,
+    name: String,
+    parent_id: u8,
+    attribute_id: u8,
     value_type_id: u8,
-    data:          Vec<u8>,
+    data: Vec<u8>,
 }
 
 pub struct KeepaliveDataCalculator;
@@ -127,6 +127,26 @@ impl Attribute {
         )
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn parent_id(&self) -> u8 {
+        self.parent_id
+    }
+
+    pub fn attribute_id(&self) -> u8 {
+        self.attribute_id
+    }
+
+    pub fn value_type_id(&self) -> u8 {
+        self.value_type_id
+    }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
     fn header_length() -> u16 {
         3u16
     }
@@ -138,7 +158,7 @@ impl Attribute {
     pub fn as_bytes(&self) -> Vec<u8> {
         let mut attribute_bytes = Vec::new();
         {
-            let raw_attribute_id = self.attribute_id as u8;
+            let raw_attribute_id = self.attribute_id;
             attribute_bytes.push(raw_attribute_id);
             attribute_bytes.extend(self.length().as_bytes_be());
             attribute_bytes.extend_from_slice(&self.data);
@@ -338,7 +358,7 @@ impl AttributeVec for Vec<Attribute> {
     }
 
     fn length(&self) -> u16 {
-        self.iter().fold(0, |sum, attr| sum + attr.length()) as u16
+        self.iter().fold(0, |sum, attr| sum + attr.length())
     }
 
     /// Now only support parse from `AttributeType::TAttribute`'s attributes,
@@ -349,7 +369,7 @@ impl AttributeVec for Vec<Attribute> {
         let header_length = Attribute::header_length() as usize;
         loop {
             let cursor = &bytes[index..];
-            let bytes_length = cursor.len() as usize;
+            let bytes_length = cursor.len();
             if bytes_length == 0 {
                 return Ok(attributes);
             }

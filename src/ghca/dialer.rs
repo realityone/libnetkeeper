@@ -1,8 +1,8 @@
-use common::bytes::BytesAbleNum;
-use common::dialer::Dialer;
-use common::hex::ToHex;
-use common::utils::current_timestamp;
-use crypto::hash::{HasherBuilder, HasherType};
+use crate::common::bytes::BytesAbleNum;
+use crate::common::dialer::Dialer;
+use crate::common::hex::ToHex;
+use crate::common::utils::current_timestamp;
+use crate::crypto::hash::{HasherBuilder, HasherType};
 
 #[derive(Debug)]
 pub enum GhcaDialerError {
@@ -18,16 +18,16 @@ pub enum Configuration {
 #[derive(Debug)]
 pub struct GhcaDialer {
     pub share_key: String,
-    pub prefix:    String,
-    pub version:   String,
+    pub prefix: String,
+    pub version: String,
 }
 
 impl GhcaDialer {
     fn new(share_key: &str, prefix: &str, version: &str) -> Self {
         GhcaDialer {
             share_key: share_key.to_string(),
-            prefix:    prefix.to_string(),
-            version:   version.to_string(),
+            prefix: prefix.to_string(),
+            version: version.to_string(),
         }
     }
 
@@ -70,12 +70,13 @@ impl GhcaDialer {
             let suffix_len = pwd_len - prefix_len;
             let pwd_prefix = &password[..prefix_len as usize];
             let pwd_suffix = &password[prefix_len as usize..pwd_len as usize];
+            let share_key_bytes = self.share_key.as_bytes();
 
             md5.update(&sec_timestamp.as_bytes_be());
-            md5.update(self.share_key[..(60 - prefix_len) as usize].as_bytes());
+            md5.update(&share_key_bytes[..(60 - prefix_len) as usize]);
             md5.update(pwd_prefix.as_bytes());
             md5.update(username.as_bytes());
-            md5.update(self.share_key[..(64 - name_len - suffix_len) as usize].as_bytes());
+            md5.update(&share_key_bytes[..(64 - name_len - suffix_len) as usize]);
             md5.update(pwd_suffix.as_bytes());
 
             let first_hashed_bytes = md5.finish();
@@ -106,9 +107,7 @@ impl Configuration {
     }
 
     pub fn prefix(self) -> &'static str {
-        match self {
-            _ => "~ghca",
-        }
+        "~ghca"
     }
 
     pub fn version(self) -> &'static str {

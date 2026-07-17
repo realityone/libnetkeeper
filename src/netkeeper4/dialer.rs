@@ -1,9 +1,9 @@
 use std::str;
 
-use common::dialer::Dialer;
-use common::utils::current_timestamp;
-use crypto::hash::{HasherBuilder, HasherType};
-use netkeeper::dialer::NetkeeperDialer;
+use crate::common::dialer::Dialer;
+use crate::common::utils::current_timestamp;
+use crate::crypto::hash::{HasherBuilder, HasherType};
+use crate::netkeeper::dialer::NetkeeperDialer;
 
 #[derive(Debug, Copy, Clone)]
 pub enum Configuration {
@@ -13,8 +13,8 @@ pub enum Configuration {
 #[derive(Debug)]
 pub struct Netkeeper4Dialer {
     pub share_key: String,
-    pub prefix:    String,
-    pub padding:   String,
+    pub prefix: String,
+    pub padding: String,
 }
 
 impl Configuration {
@@ -41,8 +41,8 @@ impl Netkeeper4Dialer {
     pub fn new(share_key: &str, prefix: &str, padding: &str) -> Self {
         Netkeeper4Dialer {
             share_key: share_key.to_string(),
-            prefix:    prefix.to_string(),
-            padding:   padding.to_string(),
+            prefix: prefix.to_string(),
+            padding: padding.to_string(),
         }
     }
 
@@ -97,7 +97,7 @@ impl Netkeeper4Dialer {
         let time_div_by_five: u32 = timenow / 5;
 
         let pin27_bytes: [u8; 6] = NetkeeperDialer::pin27_bytes(time_div_by_five);
-        let pin27_str = unsafe { str::from_utf8_unchecked(&pin27_bytes) };
+        let pin27_str = str::from_utf8(&pin27_bytes).expect("PIN alphabet is valid UTF-8");
 
         let pin89_str = {
             let padded = format!("{}{}", self.share_key, self.padding);

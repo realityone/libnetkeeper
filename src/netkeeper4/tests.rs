@@ -1,5 +1,5 @@
-use common::dialer::Dialer;
-use netkeeper4::dialer::{Configuration, Netkeeper4Dialer};
+use crate::common::dialer::Dialer;
+use crate::netkeeper4::dialer::{Configuration, Netkeeper4Dialer};
 
 #[test]
 fn test_netkeeper4_username_encrypt() {

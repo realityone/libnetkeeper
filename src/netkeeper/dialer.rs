@@ -1,10 +1,10 @@
 use std::str;
 
-use common::bytes::BytesAbleNum;
-use common::dialer::Dialer;
-use common::hex::ToHex;
-use common::utils::current_timestamp;
-use crypto::hash::{HasherBuilder, HasherType};
+use crate::common::bytes::BytesAbleNum;
+use crate::common::dialer::Dialer;
+use crate::common::hex::ToHex;
+use crate::common::utils::current_timestamp;
+use crate::crypto::hash::{HasherBuilder, HasherType};
 
 // copy from https://github.com/miao1007/Openwrt-NetKeeper
 #[derive(Debug, Clone, Copy)]
@@ -26,14 +26,14 @@ pub enum Configuration {
 #[derive(Debug)]
 pub struct NetkeeperDialer {
     pub share_key: String,
-    pub prefix:    String,
+    pub prefix: String,
 }
 
 impl NetkeeperDialer {
     pub fn new(share_key: &str, prefix: &str) -> Self {
         NetkeeperDialer {
             share_key: share_key.to_string(),
-            prefix:    prefix.to_string(),
+            prefix: prefix.to_string(),
         }
     }
 
@@ -68,7 +68,7 @@ impl NetkeeperDialer {
         let time_div_by_five: u32 = timenow / 5;
 
         let pin27_bytes: [u8; 6] = Self::pin27_bytes(time_div_by_five);
-        let pin27_str = unsafe { str::from_utf8_unchecked(&pin27_bytes) };
+        let pin27_str = str::from_utf8(&pin27_bytes).expect("PIN alphabet is valid UTF-8");
 
         let pin89_str = {
             let mut md5 = HasherBuilder::build(HasherType::MD5);
@@ -103,9 +103,7 @@ impl Configuration {
     }
 
     pub fn prefix(self) -> &'static str {
-        match self {
-            _ => "\r\n",
-        }
+        "\r\n"
     }
 }
 

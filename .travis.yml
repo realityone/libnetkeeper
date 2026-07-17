@@ -1,20 +1,13 @@
 language: rust
 
-rust:
-  - stable
-  - nightly-2019-06-01
+rust: nightly
 
-before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y openssl
+cache: cargo
 
-matrix:
-  allow_failures:
-    - script:
-        - cargo install clippy --verbose --force
-        - cargo clippy -- -D clippy
-  include:
-  - rust: "nightly-2019-06-01"
-    script:
-      - cargo install clippy --verbose --force
-      - cargo clippy -- -D clippy
+before_script:
+  - rustup component add clippy rustfmt
+
+script:
+  - cargo fmt --all -- --check
+  - cargo clippy --all-targets --all-features -- -D warnings
+  - cargo test --all-features

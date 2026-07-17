@@ -3,11 +3,13 @@ use std::{io, result};
 
 use byteorder::{ByteOrder, NativeEndian};
 
-use common::bytes::BytesAbleNum;
-use common::reader::{ReadBytesError, ReaderHelper};
-use common::utils::current_timestamp;
-use crypto::hash::{HasherBuilder, HasherType};
-use drcom::{DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER};
+use crate::common::bytes::BytesAbleNum;
+use crate::common::reader::{ReadBytesError, ReaderHelper};
+use crate::common::utils::current_timestamp;
+use crate::crypto::hash::{HasherBuilder, HasherType};
+use crate::drcom::{
+    DrCOMCommon, DrCOMFlag, DrCOMResponseCommon, DrCOMValidateError, PACKET_MAGIC_NUMBER,
+};
 
 #[derive(Debug)]
 pub enum HeartbeatError {
@@ -20,26 +22,26 @@ type HeartbeatResult<T> = result::Result<T, HeartbeatError>;
 
 #[derive(Debug)]
 pub struct PhaseOneRequest {
-    timestamp:      u32,
-    hash_salt:      [u8; 4],
-    password:       String,
+    timestamp: u32,
+    hash_salt: [u8; 4],
+    password: String,
     keep_alive_key: [u8; 4],
 }
 
 #[derive(Debug)]
 pub struct PhaseTwoRequest<'a> {
-    sequence:       u8,
+    sequence: u8,
     keep_alive_key: [u8; 4],
-    flag:           &'a (dyn DrCOMFlag + 'a),
-    type_id:        u8,
-    host_ip:        Ipv4Addr,
+    flag: &'a (dyn DrCOMFlag + 'a),
+    type_id: u8,
+    host_ip: Ipv4Addr,
 }
 
 pub struct PhaseOneResponse;
 
 #[derive(Debug)]
 pub struct PhaseTwoResponse {
-    pub sequence:       u8,
+    pub sequence: u8,
     pub keep_alive_key: [u8; 4],
 }
 

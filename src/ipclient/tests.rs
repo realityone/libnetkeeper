@@ -1,4 +1,4 @@
-use ipclient::dialer::{Configuration, ISPCode, MACOpenPacket};
+use crate::ipclient::dialer::{Configuration, ISPCode, MACOpenPacket};
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 

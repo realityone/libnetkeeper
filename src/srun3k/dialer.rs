@@ -1,4 +1,4 @@
-use common::dialer::Dialer;
+use crate::common::dialer::Dialer;
 
 #[derive(Debug)]
 pub enum Configuration {
@@ -19,10 +19,8 @@ impl Srun3kDialer {
 
     pub fn encrypt_account_v20(&self, username: &str) -> String {
         let encrypted_bytes: Vec<u8> = username.bytes().map(|c| c + 4).collect();
-        let encrypted_username;
-        unsafe {
-            encrypted_username = String::from_utf8_unchecked(encrypted_bytes);
-        };
+        let encrypted_username = String::from_utf8(encrypted_bytes)
+            .expect("SRun3k v2.0 usernames must remain valid UTF-8 after encoding");
         format!("{{SRUN3}}\r\n{}", encrypted_username)
     }
 }

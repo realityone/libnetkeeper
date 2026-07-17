@@ -1,14 +1,13 @@
-use std::str::FromStr;
-use std::{io, result, str};
+use std::{io, result};
 
+use crate::crypto::cipher::{CipherError, SimpleCipher};
+use crate::crypto::hash::{HasherBuilder, HasherType};
 use byteorder::{ByteOrder, NetworkEndian};
-use crypto::cipher::{CipherError, SimpleCipher};
-use crypto::hash::{HasherBuilder, HasherType};
 use linked_hash_map::LinkedHashMap;
 
-use common::bytes::BytesAbleNum;
-use common::reader::{ReadBytesError, ReaderHelper};
-use common::utils::current_timestamp;
+use crate::common::bytes::BytesAbleNum;
+use crate::common::reader::{ReadBytesError, ReaderHelper};
+use crate::common::utils::current_timestamp;
 
 #[derive(Debug)]
 pub enum NetkeeperHeartbeatError {
@@ -22,22 +21,22 @@ type PacketResult<T> = result::Result<T, NetkeeperHeartbeatError>;
 #[derive(Debug)]
 pub struct Frame {
     type_name: String,
-    content:   LinkedHashMap<String, String>,
+    content: LinkedHashMap<String, String>,
 }
 
 #[derive(Debug)]
 pub struct Packet {
     magic_number: u16,
-    version:      u8,
-    code:         u16,
-    frame:        Frame,
+    version: u8,
+    code: u16,
+    frame: Frame,
 }
 
 pub struct PacketUtils;
 
 impl Frame {
     pub fn new(type_name: &str, content: Option<LinkedHashMap<String, String>>) -> Self {
-        let content = content.unwrap_or_else(LinkedHashMap::new);
+        let content = content.unwrap_or_default();
         Frame {
             type_name: type_name.to_string(),
             content,
@@ -61,25 +60,18 @@ impl Frame {
     fn from_bytes(bytes: &[u8], split_with: Option<&str>) -> Self {
         let split_with = split_with.unwrap_or("&");
 
-        let byte_content;
-        unsafe {
-            byte_content = str::from_utf8_unchecked(bytes);
-        }
+        let byte_content = String::from_utf8_lossy(bytes);
 
         let mut type_name = String::from("");
         let mut frame_content: LinkedHashMap<String, String> = LinkedHashMap::new();
         for param in byte_content.split(split_with) {
-            if !param.contains('=') {
+            let Some((name, value)) = param.split_once('=') else {
                 continue;
-            }
-            let parts: Vec<String> = param.splitn(2, '=').map(|s| s.to_string()).collect();
-            if parts[0].to_lowercase() == "type" {
-                type_name = String::from_str(&parts[1]).unwrap();
+            };
+            if name.eq_ignore_ascii_case("type") {
+                type_name = value.to_owned();
             } else {
-                frame_content.insert(
-                    String::from_str(&parts[0]).unwrap(),
-                    String::from_str(&parts[1]).unwrap(),
-                );
+                frame_content.insert(name.to_owned(), value.to_owned());
             }
         }
 
@@ -89,6 +81,7 @@ impl Frame {
         }
     }
 
+    #[cfg(test)]
     fn len(&self) -> u32 {
         self.as_bytes(None).len() as u32
     }
@@ -269,9 +262,9 @@ fn test_calc_heartbeat_pin() {
 
 #[test]
 fn test_aes_128_ecb_encrypt() {
-    use crypto::cipher::AES_128_ECB;
+    use crate::crypto::cipher::Aes128Ecb;
 
-    let aes = AES_128_ECB::from_key(b"xlzjhrprotocol3x").unwrap();
+    let aes = Aes128Ecb::from_key(b"xlzjhrprotocol3x").unwrap();
     let plain_text = "TYPE=HEARTBEAT&USER_NAME=05802278989@HYXY.XY&PASSWORD=000000";
     let encrypted = aes.encrypt(plain_text.as_bytes()).unwrap();
     let real_data = vec![

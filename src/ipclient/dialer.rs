@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 use std::num::Wrapping;
 
-use common::bytes::BytesAbleNum;
+use crate::common::bytes::BytesAbleNum;
 
 const USERNAME_MAX_LEN: usize = 30;
 const MAC_ADDRESS_LEN: usize = 18;
@@ -14,10 +14,10 @@ pub enum MACOpenErr {
 
 #[derive(Debug)]
 pub struct MACOpenPacket {
-    username:    String,
-    ipaddress:   Ipv4Addr,
+    username: String,
+    ipaddress: Ipv4Addr,
     mac_address: String,
-    isp:         ISPCode,
+    isp: ISPCode,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,9 +35,7 @@ pub enum ISPCode {
 
 impl Configuration {
     pub fn hash_key(self) -> u32 {
-        match self {
-            _ => 0x4E67_C6A7,
-        }
+        0x4E67_C6A7
     }
 }
 

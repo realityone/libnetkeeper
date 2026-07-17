@@ -2,21 +2,19 @@
 
 [![Build Status](https://travis-ci.org/realityone/libnetkeeper.svg?branch=master)](https://travis-ci.org/realityone/libnetkeeper)
 
-The netkeeper toolkits write in rust.
+Rust implementations of network authentication algorithms used by several campus and ISP clients.
 
-We want integrate more algorithms in rust to avoid suffering memory management in C/C++.
-And rust can be happy to cross compile to another platform, such as `MIPS` or `ARM`.
+The crate keeps protocol implementations in memory-safe Rust and supports cross-compilation to
+targets such as MIPS and ARM.
 
 ## State
 
-Current we support these algorithms with fully test case:
+The default feature set enables all supported algorithms:
 
 - [SingleNet](https://github.com/singlenet/Anti_teNelgniS)
 - Netkeeper
+- Netkeeper 4
 - [DrCOM](https://github.com/drcoms/drcom-generic)
-
-And some not tested algorithms:
-
 - SRun3k
 - GHCA
 - IPClient
@@ -27,49 +25,29 @@ And some not tested algorithms:
 
 ## Develop
 
-First of all, you have to install rust and use nightly build, [rustup](https://www.rustup.rs) is recommended.
+Install Rust with [rustup](https://rustup.rs/). The checked-in `rust-toolchain.toml` selects the
+nightly channel and installs `rustfmt` and Clippy. The crate uses Rust 2024 and declares Rust 1.85
+as its minimum supported compiler version.
 
-### Run Test
+### Quality checks
 
-```bash
-$ cargo test
-...
-test singlenet::dialer::test_hash_key ... ok
-test netkeeper_tests::test_netkeeper_heartbeat_parse ... ok
-test singlenet::heartbeater::test_authenticator ... ok
-test singlenet::heartbeater::test_calc_seq ... ok
-test singlenet_tests::test_bubble_request ... ok
-test singlenet_tests::test_real_time_bubble_request ... ok
-test singlenet_tests::test_register_request ... ok
-test singlenet_tests::test_singlenet_username_encrypt ... ok
-test srun3k_tests::test_srun3k_v20_username_encrypt ... ok
-test singlenet_tests::test_keepalive_request_generate_and_parse ... ok
-
-test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured
-
-   Doc-tests netkeeper
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured
-```
-
-### Work With Stable Rust
-
-`libnetkeeper` should be compatible with stable rust in `default` feature.
-
-If you are using stable rust, everything will be fine except `clippy`.
-
-```bash
-$ cargo build --features=default --release
-   Compiling libnetkeeper v0.1.0 (file:///Users/realityone/Documents/Softs/libnetkeeper)
-    Finished release [optimized] target(s) in 5.50 secs
+```shell
+cargo build --all-features
+cargo test --all-features
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
 ```
 
 ### Issue or Pull Request
 
-Please fell free to open an issue or create a pull request if you have any question.
+Open an issue for protocol questions or submit a pull request with tests for behavior changes.
+
+### Security
+
+Several supported wire protocols require legacy primitives such as MD4, MD5, SHA-1, or AES-ECB.
+Use this crate only for interoperability with those protocols, not for designing new security
+systems.
 
 ### License
 
-`libnetkeeper` is under GPLv3 License.
+`libnetkeeper` is licensed under GPLv3.
